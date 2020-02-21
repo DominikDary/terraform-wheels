@@ -40,7 +40,20 @@ func (p *PluginSSHAgent) BeforeRun(project *ProjectSandbox, tf *TerraformWrapper
 		return err
 	}
 
-	err = sshagent.Start()
+	socketPath, err := project.GetTemporaryPath("tmp/ssh-agent.socket")
+	if err != nil {
+		return err
+	}
+
+	_, err = os.Stat(socketPath)
+	if err == nil {
+		err = os.Remove(socketPath)
+		if err != nil {
+			return fmt.Errorf("Could not delete old ssh-agent socket: %s", err.Error())
+		}
+	}
+
+	err = sshagent.Start(socketPath)
 	if err != nil {
 		return err
 	}

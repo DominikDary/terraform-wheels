@@ -32,21 +32,21 @@ func (w *SSHAgentWrapper) AddKey(path string) error {
 	return nil
 }
 
-func (w *SSHAgentWrapper) Start() error {
-	_, sout, _, err := ExecuteAndCollect([]string{}, w.sshAgentBinary)
+func (w *SSHAgentWrapper) Start(socketPath string) error {
+	_, sout, serr, err := ExecuteAndCollect([]string{}, w.sshAgentBinary, "-a", socketPath)
 	if err != nil {
-		return fmt.Errorf("Could not start ssh-agent: %s", err.Error())
+		return fmt.Errorf("Could not start ssh-agent: %s: %s", err.Error(), serr)
 	}
 
-	re := regexp.MustCompile(`SSH_AUTH_SOCK=(.+);`)
+	// re := regexp.MustCompile(`SSH_AUTH_SOCK=(.+);`)
+	// match := re.FindStringSubmatch(sout)
+	// if match == nil {
+	// 	return fmt.Errorf("Could not find ssh-agent socket")
+	// }
+	w.Socket = socketPath
+
+	re := regexp.MustCompile(`SSH_AGENT_PID=(\d+);`)
 	match := re.FindStringSubmatch(sout)
-	if match == nil {
-		return fmt.Errorf("Could not find ssh-agent socket")
-	}
-	w.Socket = match[1]
-
-	re = regexp.MustCompile(`SSH_AGENT_PID=(\d+);`)
-	match = re.FindStringSubmatch(sout)
 	if match == nil {
 		return fmt.Errorf("Could not find ssh-agent PID")
 	}

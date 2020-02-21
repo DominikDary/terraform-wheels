@@ -70,6 +70,20 @@ func (s *ProjectSandbox) GetFilePath(name string) string {
 }
 
 /**
+ * @brief      REturns a file on the temporary directory
+ */
+func (s *ProjectSandbox) GetTemporaryPath(name string) (string, error) {
+	terraformDir := filepath.Join(s.baseDir, ".terraform")
+	fullPath := filepath.Join(terraformDir, name)
+
+	if err := os.MkdirAll(filepath.Dir(fullPath), os.ModePerm); err != nil {
+		return "", fmt.Errorf("Unable to create terraform directory")
+	}
+
+	return fullPath, nil
+}
+
+/**
  * @brief      Checks if a file exists
  */
 func (s *ProjectSandbox) HasFile(name string) bool {

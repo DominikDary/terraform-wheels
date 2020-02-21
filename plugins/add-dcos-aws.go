@@ -8,6 +8,8 @@ import (
 	. "github.com/mesosphere-incubator/terraform-launch/utils"
 )
 
+var dcosConfigOptions map[string]string = map[string]string{}
+
 type PluginDcosAws struct {
 }
 
@@ -50,7 +52,7 @@ func (p *PluginDcosAwsCmdAddCluster) GetName() string {
 }
 
 func (p *PluginDcosAwsCmdAddCluster) GetDescription() string {
-	return "Adds the configuration to deploy DC/OS on AWS"
+	return "Adds a configuration file to deploy a DC/OS cluster on AWS"
 }
 
 func (p *PluginDcosAwsCmdAddCluster) Handle(project *ProjectSandbox, tf *TerraformWrapper) error {
