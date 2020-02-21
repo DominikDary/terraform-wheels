@@ -14,6 +14,7 @@ import (
  */
 func ExecuteAndPassthrough(env []string, binary string, args ...string) (int, error) {
   cmd := exec.Command(binary, args...)
+  cmd.Stdin = os.Stdin
   cmd.Env = append(os.Environ(), env...)
   stdout, err := cmd.StdoutPipe()
   if err != nil {

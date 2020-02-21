@@ -2,8 +2,9 @@ package utils
 
 import (
 	"fmt"
-	. "github.com/logrusorgru/aurora"
 	"os"
+
+	. "github.com/logrusorgru/aurora"
 )
 
 func FatalError(err error) {
@@ -13,5 +14,10 @@ func FatalError(err error) {
 
 func PrintInfo(format string, a ...interface{}) {
 	args := append([]interface{}{Cyan("Info: ")}, a...)
+	fmt.Printf("%s "+format+"\n", args...)
+}
+
+func PrintWarning(format string, a ...interface{}) {
+	args := append([]interface{}{Bold(Yellow("Warn: "))}, a...)
 	fmt.Printf("%s "+format+"\n", args...)
 }

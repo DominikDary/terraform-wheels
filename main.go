@@ -66,9 +66,17 @@ func showHelp(sandbox *ProjectSandbox) {
 }
 
 func invokeTerraform(sandbox *ProjectSandbox, tf *TerraformWrapper, plugins []Plugin, args []string) {
+	isInit := false
+	for _, arg := range args {
+		if arg == "init" {
+			isInit = true
+			break
+		}
+	}
+
 	// Pre-run
 	for _, plugin := range plugins {
-		err := plugin.BeforeRun(sandbox, tf)
+		err := plugin.BeforeRun(sandbox, tf, isInit)
 		if err != nil {
 			FatalError(fmt.Errorf("Could not start %s: %s", plugin.GetName(), err.Error()))
 		}
@@ -115,6 +123,9 @@ func main() {
 		FatalError(err)
 	}
 
+	// sandbox.PrintVariableDefs()
+	// return
+
 	// isEmpty, err := sandbox.IsEmpty()
 	// if err != nil {
 	// 	FatalError(err)
@@ -139,11 +150,12 @@ func main() {
 		cmd_n := ""
 		cmd_i := 0
 		for i := 1; i < len(os.Args); i++ {
-			if strings.HasSuffix(os.Args[i], "-") {
+			if strings.HasPrefix(os.Args[i], "-") {
 				continue
 			}
 			cmd_i = i
 			cmd_n = os.Args[i]
+			break
 		}
 
 		// If there was no command, show help
@@ -161,7 +173,7 @@ func main() {
 						FatalError(err)
 					}
 
-					err = cmd.Handle(sandbox, tf)
+					err = cmd.Handle(os.Args[2:], sandbox, tf)
 					if err != nil {
 						FatalError(err)
 					}

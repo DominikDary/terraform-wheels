@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -419,6 +420,14 @@ func (s *ProjectSandbox) EnsureDcosProviderTF() error {
 	return nil
 }
 
+func (s *ProjectSandbox) GetTerraformResources(resType string) map[string]map[string]interface{} {
+	if found, ok := s.tfProject[resType]; ok {
+		return found
+	}
+
+	return make(map[string]map[string]interface{})
+}
+
 func (s *ProjectSandbox) GetTerraformResourcesMatching(resType string, resField string, fieldGlob string) []map[string]interface{} {
 	var ret []map[string]interface{} = nil
 	g := glob.MustCompile(fieldGlob)
@@ -436,4 +445,54 @@ func (s *ProjectSandbox) GetTerraformResourcesMatching(resType string, resField 
 	}
 
 	return ret
+}
+
+func (s *ProjectSandbox) PrintVariableDefs() {
+	var listNames []string
+	var mapNames []string
+
+	fmt.Printf("var tfc TerraformFileConfig\n")
+	fmt.Printf("tfc.Flags = flag.NewFlagSet(p.GetName(), flag.ContinueOnError)\n")
+
+	for k, v := range s.GetTerraformResources("variable") {
+		desc := ""
+		if v, ok := v["description"]; ok {
+			desc = v.(string)
+		}
+
+		// defval := ""
+		// if v, ok := v["default"]; ok {
+		// 	defval = fmt.Sprintf("%#v", v)
+		// }
+
+		ftype := "string"
+		if v, ok := v["type"]; ok {
+			ftype = v.(string)
+		}
+
+		if ftype == "string" {
+			jv, _ := json.Marshal(desc)
+			fmt.Printf("tfc.Flags.String(\"%s\", \"\", %s)\n", k, string(jv))
+		}
+		if ftype == "list" {
+			desc += " (use multiple times to add multiple values)"
+			jv, _ := json.Marshal(desc)
+			fmt.Printf("tfc.Flags.String(\"%s\", \"\", %s)\n", k, string(jv))
+			listNames = append(listNames, k)
+		}
+		if ftype == "map" {
+			desc += " (use key=value format)"
+			jv, _ := json.Marshal(desc)
+			fmt.Printf("tfc.Flags.String(\"%s\", \"\", %s)\n", k, string(jv))
+			mapNames = append(listNames, k)
+		}
+	}
+
+	fmt.Printf("\n")
+	fmt.Printf("tfc.ListFlags = %#v\n", listNames)
+	fmt.Printf("tfc.MapFlags = %#v\n", mapNames)
+	fmt.Printf("\n")
+	fmt.Printf("tfc.PreLines = []string{}\n")
+	fmt.Printf("tfc.BodyLines = []string{}\n")
+	fmt.Printf("tfc.PostLines = []string{}\n")
 }

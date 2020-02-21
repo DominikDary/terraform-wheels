@@ -23,7 +23,7 @@ func (p *PluginAddService) IsUsed(project *ProjectSandbox) (bool, error) {
 	return false, nil
 }
 
-func (p *PluginAddService) BeforeRun(project *ProjectSandbox, tf *TerraformWrapper) error {
+func (p *PluginAddService) BeforeRun(project *ProjectSandbox, tf *TerraformWrapper, initRun bool) error {
 	return nil
 }
 
@@ -48,7 +48,7 @@ func (p *PluginAddServiceCmdAddService) GetDescription() string {
 	return "Adds a configuration file to deploy an SDK service on DC/OS"
 }
 
-func (p *PluginAddServiceCmdAddService) Handle(project *ProjectSandbox, tf *TerraformWrapper) error {
+func (p *PluginAddServiceCmdAddService) Handle(args []string, project *ProjectSandbox, tf *TerraformWrapper) error {
 	currUserStr := "somebody"
 	if u, err := user.Current(); err == nil {
 		currUserStr = u.Username

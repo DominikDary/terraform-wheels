@@ -34,7 +34,7 @@ func (p *PluginSSHAgent) IsUsed(project *ProjectSandbox) (bool, error) {
 	return used, nil
 }
 
-func (p *PluginSSHAgent) BeforeRun(project *ProjectSandbox, tf *TerraformWrapper) error {
+func (p *PluginSSHAgent) BeforeRun(project *ProjectSandbox, tf *TerraformWrapper, initRun bool) error {
 	sshagent, err := CreateSSHAgentWrapper()
 	if err != nil {
 		return err
@@ -67,7 +67,6 @@ func (p *PluginSSHAgent) BeforeRun(project *ProjectSandbox, tf *TerraformWrapper
 	for _, mod := range mods {
 		if sshKeyVar, ok := mod["ssh_public_key_file"]; ok {
 			if sshKey, ok := sshKeyVar.(string); ok {
-				PrintInfo("Found used public key: %s", sshKey)
 				pubSSHKeys = append(pubSSHKeys, sshKey)
 			}
 		}
@@ -96,6 +95,7 @@ func (p *PluginSSHAgent) BeforeRun(project *ProjectSandbox, tf *TerraformWrapper
 		}
 
 		// Add it to the SSH agent
+		PrintInfo("Loaded private key %s in ssh-agent", privKey)
 		err = sshagent.AddKey(privKey)
 		if err != nil {
 			return err
