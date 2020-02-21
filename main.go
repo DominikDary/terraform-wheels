@@ -13,6 +13,8 @@ import (
 var plugins []Plugin = []Plugin{
 	CreatePluginDcosAws(),
 	CreatePluginSSHAgent(),
+	CreatePluginAddService(),
+	CreatePluginDcosProvider(),
 }
 
 func showMissingTerraformHelp() {
@@ -212,4 +214,11 @@ func main() {
 	// Forward to terraform
 	loadedPlugins := loadPlugins(sandbox)
 	invokeTerraform(sandbox, tf, loadedPlugins, os.Args[1:])
+
+	if !hasTfFiles {
+		fmt.Println("")
+		fmt.Printf("Consider running %s add-aws-cluster if you are trying to\n", os.Args[0])
+		fmt.Printf("launch a DC/OS cluster. Or %s -help to see all options\n", os.Args[0])
+	}
+
 }

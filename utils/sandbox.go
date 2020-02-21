@@ -13,6 +13,7 @@ import (
 
 	"github.com/gobwas/glob"
 	"github.com/hashicorp/hcl"
+	"github.com/hashicorp/hcl/hcl/printer"
 	"github.com/imdario/mergo"
 )
 
@@ -330,6 +331,15 @@ func (s *ProjectSandbox) WriteFile(file string, contents []byte) error {
 	return nil
 }
 
+func (s *ProjectSandbox) WriteFormattedTerraformFile(file string, contents []byte) error {
+	contents, err := printer.Format(contents)
+	if err != nil {
+		return fmt.Errorf("Could not format output: %s", err.Error())
+	}
+
+	return s.WriteFile(file, contents)
+}
+
 func (s *ProjectSandbox) ReadFile(file string) ([]byte, error) {
 	return ioutil.ReadFile(filepath.Join(s.baseDir, file))
 }
@@ -379,6 +389,8 @@ func (s *ProjectSandbox) ReadTerraformProject() (map[string]map[string]map[strin
 						if pv, ok := dstResType[resName]; ok {
 							dstResName = pv
 						}
+
+						dstResName["_name"] = resName
 
 						if resValueMapArray, ok := _resNameArr.([]map[string]interface{}); ok {
 							for _, resValueMap := range resValueMapArray {
@@ -440,6 +452,21 @@ func (s *ProjectSandbox) GetTerraformResourcesMatching(resType string, resField 
 						ret = append(ret, mod)
 					}
 				}
+			}
+		}
+	}
+
+	return ret
+}
+
+func (s *ProjectSandbox) GetTerraformResourcesMatchingName(resType string, nameGlob string) []map[string]interface{} {
+	var ret []map[string]interface{} = nil
+	g := glob.MustCompile(nameGlob)
+
+	if mods, ok := s.tfProject[resType]; ok {
+		for modName, mod := range mods {
+			if g.Match(modName) {
+				ret = append(ret, mod)
 			}
 		}
 	}
