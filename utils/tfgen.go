@@ -10,9 +10,10 @@ import (
 )
 
 type TerraformFileConfig struct {
-	Flags     *flag.FlagSet
-	ListFlags []string
-	MapFlags  []string
+	Flags       *flag.FlagSet
+	ListFlags   []string
+	MapFlags    []string
+	IgnoreFlags []string
 
 	PreLines  []string
 	BodyLines []string
@@ -78,7 +79,16 @@ func (c *TerraformFileConfig) IsList(name string) bool {
 }
 
 func (c *TerraformFileConfig) IsMap(name string) bool {
-	for _, n := range c.ListFlags {
+	for _, n := range c.MapFlags {
+		if n == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *TerraformFileConfig) IsIgnored(name string) bool {
+	for _, n := range c.IgnoreFlags {
 		if n == name {
 			return true
 		}
@@ -98,6 +108,10 @@ func (c *TerraformFileConfig) Generate() ([]byte, error) {
 	mapValues := make(map[string]map[string]string)
 
 	c.Flags.Visit(func(f *flag.Flag) {
+		if c.IsIgnored(f.Name) {
+			return
+		}
+
 		// If that variable already exists in the body, remove it
 		for i, l := range lines {
 			if strings.Contains(l, f.Name) {
@@ -118,7 +132,7 @@ func (c *TerraformFileConfig) Generate() ([]byte, error) {
 			vals = append(vals, fmt.Sprintf("%s", f.Value.String()))
 			listValues[f.Name] = vals
 
-		} else if c.IsList(f.Name) {
+		} else if c.IsMap(f.Name) {
 			// If that's a map, add it on the maps
 			value := f.Value.String()
 			kv := strings.Split(value, "=")
@@ -165,8 +179,7 @@ func (c *TerraformFileConfig) Generate() ([]byte, error) {
 	}
 
 	// Compose all lines
-	allLines := append(c.PreLines, c.BodyLines...)
-	allLines = append(allLines, lines...)
+	allLines := append(c.PreLines, lines...)
 	allLines = append(allLines, c.PostLines...)
 
 	content := []byte(strings.Join(allLines, "\n"))

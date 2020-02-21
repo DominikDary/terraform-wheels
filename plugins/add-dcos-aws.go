@@ -151,8 +151,12 @@ func (p *PluginDcosAwsCmdAddCluster) Handle(args []string, project *ProjectSandb
   tfc.Flags.String("masters_aws_ami", "", "[MASTERS] AMI to be used")
   tfc.Flags.String("public_agents_iam_instance_profile", "", "[PUBLIC AGENTS] Instance profile to be used for these instances")
 
+  fOwner := tfc.Flags.String("owner", currUserStr, "The user-name that owns this cluster")
+  fExpire := tfc.Flags.String("expiration", "1h", "How long to keep the cluster running before cloud-cleaner tears it down")
+
   tfc.ListFlags = []string{"public_agents_access_ips", "admin_ips", "availability_zones", "accepted_internal_networks"}
   tfc.MapFlags = []string{"tags"}
+  tfc.IgnoreFlags = []string{"owner", "expiration"}
 
   help := tfc.Flags.Bool("help", false, "Show this help message")
   tfc.Flags.BoolVar(help, "h", false, "Show this help message")
@@ -221,8 +225,8 @@ func (p *PluginDcosAwsCmdAddCluster) Handle(args []string, project *ProjectSandb
   tfc.PostLines = []string{
     ``,
     `  tags = {`,
-    `    "expiration" = "1h"`,
-    fmt.Sprintf(`    "owner"      = "%s"`, currUserStr),
+    fmt.Sprintf(`    "expiration" = "%s"`, *fExpire),
+    fmt.Sprintf(`    "owner"      = "%s"`, *fOwner),
     `  }`,
     `}`,
     ``,
