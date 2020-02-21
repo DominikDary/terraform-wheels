@@ -9,8 +9,9 @@ import (
 )
 
 type SSHAgentWrapper struct {
+	Socket string
+
 	sshAgentBinary string
-	socket         string
 	pid            int
 }
 
@@ -20,7 +21,7 @@ func CreateSSHAgentWrapper() (*SSHAgentWrapper, error) {
 		return nil, fmt.Errorf("Could not find ssh-agent in your system")
 	}
 
-	return &SSHAgentWrapper{path, "", 0}, nil
+	return &SSHAgentWrapper{"", path, 0}, nil
 }
 
 func (w *SSHAgentWrapper) AddKey(path string) error {
@@ -42,7 +43,7 @@ func (w *SSHAgentWrapper) Start() error {
 	if match == nil {
 		return fmt.Errorf("Could not find ssh-agent socket")
 	}
-	w.socket = match[1]
+	w.Socket = match[1]
 
 	re = regexp.MustCompile(`SSH_AGENT_PID=(\d+);`)
 	match = re.FindStringSubmatch(sout)

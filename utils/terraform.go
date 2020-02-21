@@ -7,11 +7,15 @@ import (
 
 type TerraformWrapper struct {
 	terraformPath string
-	sshAgent      *SSHAgentWrapper
+	env           []string
 }
 
-func CreateTeraformWrapper(fName string, sshAgent *SSHAgentWrapper) *TerraformWrapper {
-	return &TerraformWrapper{fName, sshAgent}
+func CreateTeraformWrapper(fName string) *TerraformWrapper {
+	return &TerraformWrapper{fName, nil}
+}
+
+func (w *TerraformWrapper) SetEnv(key string, value string) {
+	w.env = append(w.env, fmt.Sprintf("%s=%s", key, value))
 }
 
 func (w *TerraformWrapper) GetVersion() (string, error) {
@@ -30,9 +34,6 @@ func (w *TerraformWrapper) GetVersion() (string, error) {
 }
 
 func (w *TerraformWrapper) Invoke(args []string) error {
-	env := []string{
-		fmt.Sprintf("SSH_AUTH_SOCK=%s", w.sshAgent.socket),
-	}
-	_, err := ExecuteAndPassthrough(env, w.terraformPath, args...)
+	_, err := ExecuteAndPassthrough(w.env, w.terraformPath, args...)
 	return err
 }

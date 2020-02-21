@@ -7,12 +7,22 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
-	// "runtime"
+	// "reflect"
 	"strings"
+
+	"github.com/gobwas/glob"
+	"github.com/hashicorp/hcl"
+	"github.com/imdario/mergo"
 )
+
+var RequiredTerraformVersionPrefix string = "0.11."
 
 type ProjectSandbox struct {
 	baseDir string
+
+	// Structure is:
+	// { resourceType: { resourceName: { .. merged fields .. } } }
+	tfProject map[string]map[string]map[string]interface{}
 }
 
 func OpenSandbox(baseDir string) (*ProjectSandbox, error) {
@@ -33,7 +43,23 @@ func OpenSandbox(baseDir string) (*ProjectSandbox, error) {
 		}
 	}
 
-	return &ProjectSandbox{fPath}, nil
+	sandbox := &ProjectSandbox{fPath, make(map[string]map[string]map[string]interface{})}
+	err = sandbox.ReloadTerraformProject()
+	if err != nil {
+		return nil, err
+	}
+
+	return sandbox, nil
+}
+
+func (s *ProjectSandbox) ReloadTerraformProject() error {
+	tf, err := s.ReadTerraformProject()
+	if err != nil {
+		return fmt.Errorf("could not parse project files: %s", err.Error())
+	}
+
+	s.tfProject = tf
+	return nil
 }
 
 /**
@@ -52,23 +78,15 @@ func (s *ProjectSandbox) HasFile(name string) bool {
 }
 
 /**
- * @brief      Returns true if the plugin exists
+ * @brief      Determines whether the specified path is file in sandbox.
  */
-func (s *ProjectSandbox) HasPlugin(name string) (bool, error) {
-	// pluginsDir := filepath.Join(s.baseDir, ".terraform", "plugins", "%s_%s".format(runtime.GOOS, runtime.GOARCH))
+func (s *ProjectSandbox) IsFileInSandbox(path string) bool {
+	fPath, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
 
-	// // First lookup terraform in the environment
-	// path, err := exec.LookPath(filepath.Join(pluginsDir, name))
-	// if err == nil {
-	// 	w := CreateTeraformWrapper(path)
-	// 	if ver, err := w.GetVersion(); err == nil {
-	// 		if strings.HasPrefix(ver, "0.11.") {
-	// 			PrintInfo("Using system terraform v%s", ver)
-	// 			return w, nil
-	// 		}
-	// 	}
-	// }
-	return false, nil
+	return strings.HasPrefix(fPath, s.baseDir)
 }
 
 func (s *ProjectSandbox) IsEmpty() (bool, error) {
@@ -110,18 +128,43 @@ func (s *ProjectSandbox) HasTerraformFiles() (bool, error) {
 }
 
 /**
+ * @brief      Checks if terraform exists in the system or in the sandbox and
+ *  					 we will not have to download it.
+ *
+ * @return     True if system terraform, False otherwise.
+ */
+func (s *ProjectSandbox) HasTerraform() bool {
+	terraformDir := filepath.Join(s.baseDir, ".terraform")
+
+	path, err := exec.LookPath("terraform")
+	if err == nil {
+		w := CreateTeraformWrapper(path)
+		if ver, err := w.GetVersion(); err == nil {
+			if strings.HasPrefix(ver, RequiredTerraformVersionPrefix) {
+				return true
+			}
+		}
+	}
+
+	fBinPath := filepath.Join(terraformDir, "bin")
+	fPath := filepath.Join(fBinPath, "terraform")
+	_, err = os.Stat(fPath)
+	return err == nil
+}
+
+/**
  * @brief      Returns the full path to the terraform binary from within the
  * 						 sandbox directory.
  */
-func (s *ProjectSandbox) GetTerraform(sshAgent *SSHAgentWrapper) (*TerraformWrapper, error) {
+func (s *ProjectSandbox) GetTerraform() (*TerraformWrapper, error) {
 	terraformDir := filepath.Join(s.baseDir, ".terraform")
 
 	// First lookup terraform in the environment
 	path, err := exec.LookPath("terraform")
 	if err == nil {
-		w := CreateTeraformWrapper(path, sshAgent)
+		w := CreateTeraformWrapper(path)
 		if ver, err := w.GetVersion(); err == nil {
-			if strings.HasPrefix(ver, "0.11.") {
+			if strings.HasPrefix(ver, RequiredTerraformVersionPrefix) {
 				PrintInfo("Using system terraform v%s", ver)
 				return w, nil
 			}
@@ -157,7 +200,7 @@ func (s *ProjectSandbox) GetTerraform(sshAgent *SSHAgentWrapper) (*TerraformWrap
 	}
 
 	// Try to use the binary
-	w := CreateTeraformWrapper(fPath, sshAgent)
+	w := CreateTeraformWrapper(fPath)
 	ver, err := w.GetVersion()
 	if err != nil {
 		return nil, fmt.Errorf("Unable to execute the cached terraform binary. Try deleting .terraform directory and re-run again.")
@@ -257,4 +300,126 @@ func (s *ProjectSandbox) InitProject() error {
 	}
 
 	return nil
+}
+
+/**
+ * @brief      Returns the full path to the terraform binary from within the
+ * 						 sandbox directory.
+ */
+func (s *ProjectSandbox) WriteFile(file string, contents []byte) error {
+	err := ioutil.WriteFile(filepath.Join(s.baseDir, file), contents, 0644)
+	if err != nil {
+		return fmt.Errorf("Could not write %s: %s", file, err.Error())
+	}
+
+	return nil
+}
+
+func (s *ProjectSandbox) ReadFile(file string) ([]byte, error) {
+	return ioutil.ReadFile(filepath.Join(s.baseDir, file))
+}
+
+func (s *ProjectSandbox) ReadTerraformFile(file string) (map[string]interface{}, error) {
+	content, err := s.ReadFile(file)
+	if err != nil {
+		return nil, fmt.Errorf("Could not read %s: %s", file, err.Error())
+	}
+
+	dst := make(map[string]interface{})
+	err = hcl.Unmarshal(content, &dst)
+	if err != nil {
+		return nil, fmt.Errorf("Could not parse %s: %s", file, err.Error())
+	}
+
+	return dst, nil
+}
+
+func (s *ProjectSandbox) ReadTerraformProject() (map[string]map[string]map[string]interface{}, error) {
+	files, err := ioutil.ReadDir(s.baseDir)
+	if err != nil {
+		return nil, fmt.Errorf("Could not enumerate files: %s", err.Error())
+	}
+
+	dst := make(map[string]map[string]map[string]interface{})
+	for _, file := range files {
+		if !strings.HasSuffix(file.Name(), ".tf") {
+			continue
+		}
+
+		slice, err := s.ReadTerraformFile(file.Name())
+		if err != nil {
+			return nil, err
+		}
+
+		for resType, _resTypeArr := range slice {
+			dstResType := make(map[string]map[string]interface{})
+			if pv, ok := dst[resType]; ok {
+				dstResType = pv
+			}
+
+			if resNamesArr, ok := _resTypeArr.([]map[string]interface{}); ok {
+				for _, resNamesMap := range resNamesArr {
+					for resName, _resNameArr := range resNamesMap {
+						dstResName := make(map[string]interface{})
+						if pv, ok := dstResType[resName]; ok {
+							dstResName = pv
+						}
+
+						if resValueMapArray, ok := _resNameArr.([]map[string]interface{}); ok {
+							for _, resValueMap := range resValueMapArray {
+								err := mergo.Merge(&dstResName, resValueMap)
+								if err != nil {
+									return nil, fmt.Errorf("Could not merge resource '%s.%s': %s", resType, resName, err.Error())
+								}
+							}
+						} else {
+							return nil, fmt.Errorf("Unexpected resource '%s.%s' type: %v", resType, resName, resValueMapArray)
+						}
+
+						dstResType[resName] = dstResName
+					}
+				}
+			} else {
+				return nil, fmt.Errorf("Unexpected resource type '%s' type: %v", resType, _resTypeArr)
+			}
+
+			dst[resType] = dstResType
+		}
+	}
+
+	return dst, nil
+}
+
+func (s *ProjectSandbox) EnsureDcosProviderTF() error {
+
+	if !s.HasFile("provider-dcos.tf") {
+		lines := []string{
+			`provider "dcos" {}`,
+			`data "dcos_token" "current" {}`,
+			`data "dcos_base_url" "current" {}`,
+		}
+
+		return s.WriteFile("provider-dcos.tf", []byte(strings.Join(lines, "\n")))
+	}
+
+	return nil
+}
+
+func (s *ProjectSandbox) GetTerraformResourcesMatching(resType string, resField string, fieldGlob string) []map[string]interface{} {
+	var ret []map[string]interface{} = nil
+	g := glob.MustCompile(fieldGlob)
+
+	if mods, ok := s.tfProject[resType]; ok {
+		for _, mod := range mods {
+			if modSource, ok := mod[resField]; ok {
+				if modSourceStr, ok := modSource.(string); ok {
+					if g.Match(modSourceStr) {
+						ret = append(ret, mod)
+					}
+				}
+			}
+		}
+	}
+
+	return ret
 }

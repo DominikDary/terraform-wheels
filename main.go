@@ -5,43 +5,38 @@ import (
 	"os"
 	"strings"
 
+	// . "github.com/mesosphere-incubator/terraform-launch/codegen"
+	. "github.com/mesosphere-incubator/terraform-launch/plugins"
 	. "github.com/mesosphere-incubator/terraform-launch/utils"
 )
 
-func showHelpFor(cmd string) {
-	me := os.Args[0]
+var plugins []Plugin = []Plugin{
+	CreatePluginDcosAws(),
+	CreatePluginSSHAgent(),
+}
 
-	if cmd == "init" {
-		fmt.Println("")
-		fmt.Println("You are now ready to deploy a DC/OS cluster. Have a look on main.tf")
-		fmt.Println("and adjust it according to your needs. You can find more information")
-		fmt.Println("regarding the available options here:")
-		fmt.Println("")
-		fmt.Println("https://github.com/dcos-terraform/terraform-aws-dcos#dcos-on-aws")
-		fmt.Println("")
-		fmt.Println("When you are satisfied with your configuration, you can deploy a cluster")
-		fmt.Println("using the following commands:")
-		fmt.Println()
-		fmt.Printf("  %s plan -out=plan.out\n", me)
-		fmt.Printf("  %s apply plan.out\n", me)
-		fmt.Println()
-	}
+func showMissingTerraformHelp() {
+	fmt.Println("Your system does not have terraform installed, or it's version is not")
+	fmt.Printf("compatible with our %sx requirements. This means we cannot show you\n", RequiredTerraformVersionPrefix)
+	fmt.Println("the terraform help screen. ")
+	fmt.Println("")
+	fmt.Println("This tool will automatically download the correct terraform version and")
+	fmt.Println("place it in your current project directory when you try to use the")
+	fmt.Println("following commands for the first time:")
+}
 
-	if cmd == "plan" {
-		fmt.Println("")
-		fmt.Println("Terraform has now created a plan file, containing all the operation")
-		fmt.Println("it has to perform in order to reach your configuration state. Use the")
-		fmt.Println("following command to actually apply them:")
-		fmt.Println("")
-		fmt.Printf("  %s apply plan.out", me)
-		fmt.Println("")
+func showPluginHelp() {
+	fmt.Println("")
+	fmt.Println("DC/OS Commands:")
+	for _, plugin := range plugins {
+		for _, cmd := range plugin.GetCommands() {
+			fmt.Printf("    %-18s %s\n", cmd.GetName(), cmd.GetDescription())
+		}
 	}
 }
 
-func showHelp() {
-	fmt.Println("")
-	fmt.Println("DC/OS Commands:")
-	fmt.Println("    dcos               Builds or changes infrastructure")
+func showInitUsage() {
+	FatalError(fmt.Errorf("Your current directory does not contain terraform files. Please run `init` to prepare it."))
 }
 
 func shouldShowHelp(args []string) bool {
@@ -53,85 +48,156 @@ func shouldShowHelp(args []string) bool {
 	return false
 }
 
+func showHelp(sandbox *ProjectSandbox) {
+	// Show terraform help
+	if sandbox.HasTerraform() {
+		tf, err := sandbox.GetTerraform()
+		if err != nil {
+			FatalError(err)
+		}
+		tf.Invoke([]string{})
+	} else {
+		showMissingTerraformHelp()
+	}
+
+	// Show plugin help and exit
+	showPluginHelp()
+	os.Exit(1)
+}
+
+func invokeTerraform(sandbox *ProjectSandbox, tf *TerraformWrapper, plugins []Plugin, args []string) {
+	// Pre-run
+	for _, plugin := range plugins {
+		err := plugin.BeforeRun(sandbox, tf)
+		if err != nil {
+			FatalError(fmt.Errorf("Could not start %s: %s", plugin.GetName(), err.Error()))
+		}
+	}
+
+	// Run
+	err := tf.Invoke(args)
+
+	// Post-run
+	for _, plugin := range plugins {
+		perr := plugin.AfterRun(sandbox, tf, err)
+		if perr != nil {
+			FatalError(fmt.Errorf("Could not finalize %s: %s", plugin.GetName(), err.Error()))
+		}
+	}
+}
+
+func loadPlugins(sandbox *ProjectSandbox) []Plugin {
+	var loadedPlugins []Plugin
+	for _, plugin := range plugins {
+		used, err := plugin.IsUsed(sandbox)
+		if err != nil {
+			FatalError(err)
+		}
+
+		if used {
+			PrintInfo("Using plugin %s", plugin.GetName())
+			loadedPlugins = append(loadedPlugins, plugin)
+		}
+	}
+
+	return loadedPlugins
+}
+
 func main() {
 	cwd, err := os.Getwd()
 	if err != nil {
 		FatalError(err)
 	}
 
+	// Get a work directory sandbox
 	sandbox, err := OpenSandbox(cwd)
 	if err != nil {
 		FatalError(err)
 	}
 
-	isEmpty, err := sandbox.IsEmpty()
-	if err != nil {
-		FatalError(err)
-	}
+	// isEmpty, err := sandbox.IsEmpty()
+	// if err != nil {
+	// 	FatalError(err)
+	// }
 
+	// Check the sandbox status
 	hasTfFiles, err := sandbox.HasTerraformFiles()
 	if err != nil {
 		FatalError(err)
 	}
 
-	prepared := false
-	if (len(os.Args) > 1) && (os.Args[1] == "init") {
-		if isEmpty {
-			err = sandbox.InitProject()
-			if err != nil {
-				FatalError(err)
+	// Handle help prompt early
+	if len(os.Args) <= 1 || strings.Contains(os.Args[1], "help") {
+		showHelp(sandbox)
+		return
+	}
+
+	// Check if this is a plugin command and delegate it to the respective handler
+	if len(os.Args) > 1 {
+
+		// Ignore flags until we find a command
+		cmd_n := ""
+		cmd_i := 0
+		for i := 1; i < len(os.Args); i++ {
+			if strings.HasSuffix(os.Args[i], "-") {
+				continue
 			}
-			prepared = true
-		} else if !hasTfFiles {
-			err = sandbox.InitProject()
-			if err != nil {
-				FatalError(err)
+			cmd_i = i
+			cmd_n = os.Args[i]
+		}
+
+		// If there was no command, show help
+		if cmd_i == 0 {
+			showHelp(sandbox)
+			return
+		}
+
+		// Check if this is a plugin command
+		for _, plugin := range plugins {
+			for _, cmd := range plugin.GetCommands() {
+				if cmd.GetName() == cmd_n {
+					tf, err := sandbox.GetTerraform()
+					if err != nil {
+						FatalError(err)
+					}
+
+					err = cmd.Handle(sandbox, tf)
+					if err != nil {
+						FatalError(err)
+					}
+
+					nowHasTfFiles, err := sandbox.HasTerraformFiles()
+					if err != nil {
+						FatalError(err)
+					}
+
+					// If that's the first time we saw some tf files, take the opportunity
+					// to run initialize, so the user has less things to do
+					if !hasTfFiles && nowHasTfFiles {
+						PrintInfo("Terraform project created, initializing now")
+
+						err := sandbox.ReloadTerraformProject()
+						if err != nil {
+							FatalError(err)
+						}
+
+						loadedPlugins := loadPlugins(sandbox)
+						invokeTerraform(sandbox, tf, loadedPlugins, []string{"init"})
+					}
+
+					return
+				}
 			}
-			prepared = true
 		}
 	}
 
-	if (isEmpty || !hasTfFiles) && !prepared {
-		FatalError(fmt.Errorf("Your current directory does not contain terraform files. Please run `init` to prepare it."))
-	}
-
-	sshagent, err := CreateSSHAgentWrapper()
+	// Initialize terraform now
+	tf, err := sandbox.GetTerraform()
 	if err != nil {
 		FatalError(err)
 	}
 
-	tf, err := sandbox.GetTerraform(sshagent)
-	if err != nil {
-		FatalError(err)
-	}
-
-	if !IsAWSCredsOK() {
-		FatalError(fmt.Errorf("Could not find (still valid) AWS credentials in your enviroment. Use `maws login` and make sure to export the AWS_PROFILE"))
-	}
-
-	err = sshagent.Start()
-	if err != nil {
-		FatalError(err)
-	}
-	if sandbox.HasFile("cluster-key") {
-		err = sshagent.AddKey(sandbox.GetFilePath("cluster-key"))
-		if err != nil {
-			FatalError(err)
-		}
-	} else {
-		FatalError(fmt.Errorf("The script currently requires the private cluster key to be saved in a file called 'cluster-key'"))
-	}
-
-	tf.Invoke(os.Args[1:])
-
-	// Inject our additional commands to terraform
-	if (len(os.Args) == 1) || shouldShowHelp(os.Args) {
-		showHelp()
-	}
-
-	err = sshagent.Stop()
-	if err != nil {
-		FatalError(err)
-	}
-
+	// Forward to terraform
+	loadedPlugins := loadPlugins(sandbox)
+	invokeTerraform(sandbox, tf, loadedPlugins, os.Args[1:])
 }
