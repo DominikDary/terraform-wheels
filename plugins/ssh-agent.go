@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	. "github.com/logrusorgru/aurora"
 	. "github.com/mesosphere-incubator/terraform-launch/utils"
 )
 
@@ -91,11 +92,11 @@ func (p *PluginSSHAgent) BeforeRun(project *ProjectSandbox, tf *TerraformWrapper
 		privKey := getPrivateKeyNameFromPub(sshKey)
 		_, err = os.Stat(privKey)
 		if err != nil {
-			return fmt.Errorf("Could not find private key for %s (searching for %s)", sshKey, privKey)
+			return fmt.Errorf("Could not find private key for %s (searching for %s)", Bold(sshKey), privKey)
 		}
 
 		// Add it to the SSH agent
-		PrintInfo("Loaded private key %s in ssh-agent", privKey)
+		PrintInfo("Loaded private key %s in ssh-agent", Bold(privKey))
 		err = sshagent.AddKey(privKey)
 		if err != nil {
 			return err

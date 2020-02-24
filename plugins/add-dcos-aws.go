@@ -9,6 +9,9 @@ import (
 
   . "github.com/logrusorgru/aurora"
   . "github.com/mesosphere-incubator/terraform-launch/utils"
+  "gopkg.in/hlandau/passlib.v1"
+  "gopkg.in/hlandau/passlib.v1/abstract"
+  "gopkg.in/hlandau/passlib.v1/hash/sha2crypt"
 )
 
 type PluginDcosAws struct {
@@ -35,10 +38,10 @@ func (p *PluginDcosAws) BeforeRun(project *ProjectSandbox, tf *TerraformWrapper,
     // Check if we have maws and a profile already set. In which case we are
     // going to transparently do a maws credential refresh
     _, err := exec.LookPath("maws")
-    if err != nil {
+    if err == nil {
       profile, ok := os.LookupEnv("AWS_PROFILE")
       if ok {
-        PrintInfo("Your AWS credentials have expired, going to refresh them for you...")
+        PrintInfo("Your AWS credentials have expired, going to refresh them using %s", Bold("maws"))
 
         _, _, serr, err := ExecuteAndCollect([]string{}, "maws", "login", profile)
         if err != nil {
@@ -140,7 +143,6 @@ func (p *PluginDcosAwsCmdAddCluster) Handle(args []string, project *ProjectSandb
   tfc.Flags.String("masters_acm_cert_arn", "", "ACM certifacte to be used for the masters load balancer")
   tfc.Flags.String("dcos_aws_template_upload", "", "To automatically upload the customized advanced templates to your S3 bucket. (optional)")
   tfc.Flags.String("dcos_exhibitor_zk_path", "", "the filepath that Exhibitor uses to store data (not recommended but required with exhibitor_storage_backend set to zookeeper. Use aws_s3 or azureinstead. Assumes external ZooKeeper is already online.)")
-  tfc.Flags.String("dcos_superuser_password_hash", "", "[Enterprise DC/OS] set the superuser password hash (recommended)")
   tfc.Flags.String("dcos_process_timeout", "", "The allowable amount of time, in seconds, for an action to begin after the process forks. (optional)")
   tfc.Flags.String("num_masters", "", "Specify the amount of masters. For redundancy you should have at least 3")
   tfc.Flags.String("bootstrap_hostname_format", "", "[BOOTSTRAP] Format the hostname inputs are index+1, region, cluster_name")
@@ -287,13 +289,15 @@ func (p *PluginDcosAwsCmdAddCluster) Handle(args []string, project *ProjectSandb
   tfc.Flags.String("dcos_exhibitor_azure_prefix", "", "the azure account name for exhibitor storage (optional but required with dcos_exhibitor_address)")
   tfc.Flags.String("dcos_mesos_dns_set_truncate_bit", "", "Indicates whether to set the truncate bit if the response is too large to fit in a single packet. (optional)")
   tfc.Flags.String("dcos_check_time", "", "Check if Network Time Protocol (NTP) is enabled during DC/OS startup. (optional)")
+  tfc.Flags.String("dcos_superuser_password_hash", "", "[Enterprise DC/OS] set the superuser password hash (recommended)")
 
+  fPassword := tfc.Flags.String("dcos_superuser_password", "", "The plain-text password to encode")
   fOwner := tfc.Flags.String("owner", currUserStr, "The user-name that owns this cluster")
   fExpire := tfc.Flags.String("expiration", "1h", "How long to keep the cluster running before cloud-cleaner tears it down")
 
   tfc.ListFlags = []string{"public_agents_access_ips", "accepted_internal_networks", "admin_ips", "availability_zones"}
   tfc.MapFlags = []string{"tags"}
-  tfc.IgnoreFlags = []string{"owner", "expiration"}
+  tfc.IgnoreFlags = []string{"owner", "expiration", "dcos_superuser_password"}
 
   help := tfc.Flags.Bool("help", false, "Show this help message")
   tfc.Flags.BoolVar(help, "h", false, "Show this help message")
@@ -312,6 +316,22 @@ func (p *PluginDcosAwsCmdAddCluster) Handle(args []string, project *ProjectSandb
     fmt.Println("Options:")
     tfc.PrintOptionHelp()
     return nil
+  }
+
+  // Hash password if given as hash input
+  if *fPassword != "" {
+    ctx := &passlib.Context{
+      Schemes: []abstract.Scheme{
+        sha2crypt.NewCrypter512(656000),
+      },
+    }
+
+    hash, err := ctx.Hash(*fPassword)
+    if err != nil {
+      return fmt.Errorf("Could not encode password: %s", err.Error())
+    }
+
+    tfc.Flags.Set("dcos_superuser_password_hash", hash)
   }
 
   tfc.PreLines = []string{

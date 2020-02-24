@@ -11,6 +11,7 @@ import (
 )
 
 var plugins []Plugin = []Plugin{
+	CreatePluginImportCluster(),
 	CreatePluginDcosAws(),
 	CreatePluginSSHAgent(),
 	CreatePluginAddService(),
