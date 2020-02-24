@@ -4,6 +4,7 @@ import (
   "flag"
   "fmt"
   "os"
+  "os/exec"
   "os/user"
 
   . "github.com/logrusorgru/aurora"
@@ -24,13 +25,38 @@ func (p *PluginDcosAws) GetName() string {
 }
 
 func (p *PluginDcosAws) IsUsed(project *ProjectSandbox) (bool, error) {
+  // Check if we are using the AWS provider
   mods := project.GetTerraformResourcesMatching("module", "source", "*dcos-terraform/dcos/aws")
   return mods != nil, nil
 }
 
 func (p *PluginDcosAws) BeforeRun(project *ProjectSandbox, tf *TerraformWrapper, initRun bool) error {
   if !IsAWSCredsOK() {
-    err := fmt.Errorf("Could not find (still valid) AWS credentials in your enviroment. Use `maws login` and make sure to export the AWS_PROFILE")
+    // Check if we have maws and a profile already set. In which case we are
+    // going to transparently do a maws credential refresh
+    _, err := exec.LookPath("maws")
+    if err != nil {
+      profile, ok := os.LookupEnv("AWS_PROFILE")
+      if ok {
+        PrintInfo("Your AWS credentials have expired, going to refresh them for you...")
+
+        _, _, serr, err := ExecuteAndCollect([]string{}, "maws", "login", profile)
+        if err != nil {
+          fmt.Println(serr)
+          FatalError(fmt.Errorf("Failed to login with `maws`, please retry manually"))
+        }
+
+        // We should be OK by now
+        if !IsAWSCredsOK() {
+          FatalError(fmt.Errorf("Failed to refresh credentials with `maws`, please retry manually"))
+        }
+
+        // Everything looks good, don't continue with the prompt
+        return nil
+      }
+    }
+
+    err = fmt.Errorf("Could not find (still valid) AWS credentials in your enviroment. Use `maws login` and make sure to export the AWS_PROFILE")
     if initRun {
       PrintWarning(err.Error())
     } else {
