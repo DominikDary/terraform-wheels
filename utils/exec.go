@@ -6,8 +6,30 @@ import (
   "io/ioutil"
   "os"
   "os/exec"
+  "os/signal"
+  "strings"
   "syscall"
 )
+
+func updateEnv(a []string, b []string) []string {
+  merged := make(map[string]string)
+
+  for _, e := range a {
+    pair := strings.SplitN(e, "=", 2)
+    merged[pair[0]] = pair[1]
+  }
+  for _, e := range b {
+    pair := strings.SplitN(e, "=", 2)
+    merged[pair[0]] = pair[1]
+  }
+
+  var ret []string = nil
+  for k, v := range merged {
+    ret = append(ret, fmt.Sprintf("%s=%s", k, v))
+  }
+
+  return ret
+}
 
 /**
  * Run the given command and pipe stdout/stderr
@@ -15,7 +37,8 @@ import (
 func ExecuteAndPassthrough(env []string, binary string, args ...string) (int, error) {
   cmd := exec.Command(binary, args...)
   cmd.Stdin = os.Stdin
-  cmd.Env = append(os.Environ(), env...)
+  cmd.Env = updateEnv(os.Environ(), env)
+
   stdout, err := cmd.StdoutPipe()
   if err != nil {
     return 0, fmt.Errorf("Unable to open StdOut Pipe: %s", err.Error())
@@ -36,7 +59,25 @@ func ExecuteAndPassthrough(env []string, binary string, args ...string) (int, er
     _, _ = io.Copy(os.Stderr, stderr)
   }()
 
-  if err := cmd.Wait(); err != nil {
+  // Forward interrupt signals to the launched process
+  sigs := make(chan os.Signal, 1)
+  signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+  go func() {
+    for {
+      sig := <-sigs
+      if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
+        return
+      }
+      cmd.Process.Signal(sig)
+    }
+  }()
+
+  // Wait until the command is completed and remove the signal handlers
+  err = cmd.Wait()
+  signal.Reset(syscall.SIGINT, syscall.SIGTERM)
+  sigs <- syscall.SIGINT
+
+  if err != nil {
     // Get exit code on non-zero exits
     if exiterr, ok := err.(*exec.ExitError); ok {
       if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
@@ -97,7 +138,7 @@ func ExecuteInFolderAndPassthrough(workDir string, binary string, args ...string
  */
 func ExecuteAndCollect(env []string, binary string, args ...string) (int, string, string, error) {
   cmd := exec.Command(binary, args...)
-  cmd.Env = append(os.Environ(), env...)
+  cmd.Env = updateEnv(os.Environ(), env)
 
   stdout, err := cmd.StdoutPipe()
   if err != nil {
