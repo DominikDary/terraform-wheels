@@ -8,9 +8,28 @@ import (
   "fmt"
   "golang.org/x/crypto/ssh"
   "io/ioutil"
-  "log"
+  // "log"
   "strings"
 )
+
+func CreatePublicRSAKeyFromPrivate(contents []byte, savePublicFileTo string) error {
+  privateKey, err := parsePrivateKey(contents, "")
+  if err != nil {
+    return fmt.Errorf("Error parsing private key: %s", err.Error())
+  }
+
+  publicKeyBytes, err := generatePublicKey(&privateKey.PublicKey)
+  if err != nil {
+    return fmt.Errorf("Error generating public key: %s", err.Error())
+  }
+
+  err = writeKeyToFile([]byte(publicKeyBytes), savePublicFileTo)
+  if err != nil {
+    return fmt.Errorf("Error writing public key: %s", err.Error())
+  }
+
+  return nil
+}
 
 func CreateRSAKeyPair(savePrivateFileTo string, savePublicFileTo string) error {
   bitSize := 2048
@@ -40,6 +59,38 @@ func CreateRSAKeyPair(savePrivateFileTo string, savePublicFileTo string) error {
   return nil
 }
 
+func parsePrivateKey(contents []byte, rsaPrivateKeyPassword string) (*rsa.PrivateKey, error) {
+  var err error
+
+  privPem, _ := pem.Decode(contents)
+  var privPemBytes []byte
+  if privPem.Type != "RSA PRIVATE KEY" {
+    return nil, fmt.Errorf("RSA private key is of the wrong type: %s", privPem.Type)
+  }
+
+  if rsaPrivateKeyPassword != "" {
+    privPemBytes, err = x509.DecryptPEMBlock(privPem, []byte(rsaPrivateKeyPassword))
+  } else {
+    privPemBytes = privPem.Bytes
+  }
+
+  var parsedKey interface{}
+  if parsedKey, err = x509.ParsePKCS1PrivateKey(privPemBytes); err != nil {
+    if parsedKey, err = x509.ParsePKCS8PrivateKey(privPemBytes); err != nil { // note this returns type `interface{}`
+      return nil, fmt.Errorf("Unable to parse RSA private key: %s", err.Error())
+    }
+  }
+
+  var privateKey *rsa.PrivateKey
+  var ok bool
+  privateKey, ok = parsedKey.(*rsa.PrivateKey)
+  if !ok {
+    return nil, fmt.Errorf("This does not look like an RSA private key")
+  }
+
+  return privateKey, nil
+}
+
 // generatePrivateKey creates a RSA Private Key of specified byte size
 func generatePrivateKey(bitSize int) (*rsa.PrivateKey, error) {
   // Private Key generation
@@ -54,7 +105,7 @@ func generatePrivateKey(bitSize int) (*rsa.PrivateKey, error) {
     return nil, err
   }
 
-  log.Println("Private Key generated")
+  // log.Println("Private Key generated")
   return privateKey, nil
 }
 
@@ -86,7 +137,7 @@ func generatePublicKey(privatekey *rsa.PublicKey) ([]byte, error) {
 
   pubKeyBytes := ssh.MarshalAuthorizedKey(publicRsaKey)
 
-  log.Println("Public key generated")
+  // log.Println("Public key generated")
   return pubKeyBytes, nil
 }
 
@@ -97,14 +148,34 @@ func writeKeyToFile(keyBytes []byte, saveFileTo string) error {
     return err
   }
 
-  log.Printf("Key saved to: %s", saveFileTo)
+  // log.Printf("Key saved to: %s", saveFileTo)
   return nil
 }
 
-func GetPrivateKeyNameFromPub(name string) string {
-  if strings.HasSuffix(name, ".pub") {
-    return name[0 : len(name)-4]
+func GetPrivateKeyNameFromPublic(pubName string) string {
+  if strings.Contains(pubName, "public") {
+    return strings.ReplaceAll(pubName, "public", "private")
+  }
+  if strings.HasSuffix(pubName, ".pub") {
+    return pubName[0 : len(pubName)-4]
+  }
+  if strings.Contains(pubName, "pub") {
+    return strings.ReplaceAll(pubName, "pub", "priv")
   }
 
-  return name + ".key"
+  return pubName + ".key"
+}
+
+func GetPublicKeyNameFromPrivate(pubName string) string {
+  if strings.Contains(pubName, "private") {
+    return strings.ReplaceAll(pubName, "private", "public")
+  }
+  if strings.HasSuffix(pubName, ".key") {
+    return pubName[0:len(pubName)-4] + ".pub"
+  }
+  if strings.Contains(pubName, "priv") {
+    return strings.ReplaceAll(pubName, "priv", "pub")
+  }
+
+  return pubName + ".pub"
 }

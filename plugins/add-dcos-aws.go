@@ -415,5 +415,5 @@ func (p *PluginDcosAwsCmdAddCluster) Handle(args []string, project *ProjectSandb
   p.parent.showInstructions = true
   p.parent.createdFile = fileName
 
-  return project.WriteFile(fileName, contents)
+  return project.WriteFormattedTerraformFile(fileName, contents)
 }

@@ -80,7 +80,7 @@ func (p *PluginSSHAgent) BeforeRun(project *ProjectSandbox, tf *TerraformWrapper
     if project.IsFileInSandbox(sshKey) && !project.HasFile(sshKey) {
       PrintInfo("Found a defined ssh key '%s', but missing from the project directory. Going to create a keypair for you", sshKey)
 
-      fPrivateKey := project.GetFilePath(GetPrivateKeyNameFromPub(sshKey))
+      fPrivateKey := project.GetFilePath(GetPrivateKeyNameFromPublic(sshKey))
       fPublicKey := project.GetFilePath(sshKey)
       err := CreateRSAKeyPair(fPrivateKey, fPublicKey)
       if err != nil {
@@ -89,7 +89,7 @@ func (p *PluginSSHAgent) BeforeRun(project *ProjectSandbox, tf *TerraformWrapper
     }
 
     // Try to deduce the private key from the public key
-    privKey := GetPrivateKeyNameFromPub(sshKey)
+    privKey := GetPrivateKeyNameFromPublic(sshKey)
     _, err = os.Stat(privKey)
     if err != nil {
       return fmt.Errorf("Could not find private key for %s (searching for %s)", Bold(sshKey), privKey)
