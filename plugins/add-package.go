@@ -130,7 +130,7 @@ func (p *PluginAddServiceCmdAddService) Handle(args []string, project *ProjectSa
     `}`,
   }...)
 
-  PrintInfo("%s", Bold("Writing "+fileName+" containing information for deploying a service on top of DC/OS"))
+  PrintInfo("%s%s%s", Bold("Writing "), Bold(Green(fileName)), Bold(" containing information for deploying a service on top of DC/OS"))
   contents := []byte(strings.Join(lines, "\n") + "\n")
   return project.WriteFormattedTerraformFile(fileName, contents)
 }

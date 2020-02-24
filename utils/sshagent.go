@@ -10,22 +10,30 @@ import (
 
 type SSHAgentWrapper struct {
   Socket string
+  Pid    int
 
   sshAgentBinary string
-  pid            int
+  sshAddBinary   string
 }
 
 func CreateSSHAgentWrapper() (*SSHAgentWrapper, error) {
-  path, err := exec.LookPath("ssh-agent")
+  pathAgent, err := exec.LookPath("ssh-agent")
   if err != nil {
     return nil, fmt.Errorf("Could not find ssh-agent in your system")
   }
 
-  return &SSHAgentWrapper{"", path, 0}, nil
+  pathAdd, err := exec.LookPath("ssh-add")
+  if err != nil {
+    return nil, fmt.Errorf("Could not find ssh-add in your system")
+  }
+
+  return &SSHAgentWrapper{"", 0, pathAgent, pathAdd}, nil
 }
 
 func (w *SSHAgentWrapper) AddKey(path string) error {
-  _, _, _, err := ExecuteAndCollect([]string{}, w.sshAgentBinary, path)
+  _, _, _, err := ExecuteAndCollect([]string{
+    fmt.Sprintf("SSH_AUTH_SOCK=%s", w.Socket),
+  }, w.sshAddBinary, path)
   if err != nil {
     return fmt.Errorf("Could not add ssh key: %s", err.Error())
   }
@@ -55,14 +63,14 @@ func (w *SSHAgentWrapper) Start(socketPath string) error {
   if err != nil {
     return fmt.Errorf("Could not parse ssh-agent PID")
   }
-  w.pid = pid
+  w.Pid = pid
 
-  PrintInfo("Started ssh-agent (pid=%d)", w.pid)
+  PrintInfo("Started ssh-agent (pid=%d)", w.Pid)
   return nil
 }
 
 func (w *SSHAgentWrapper) Stop() error {
-  proc, err := os.FindProcess(w.pid)
+  proc, err := os.FindProcess(w.Pid)
   if err != nil {
     return fmt.Errorf("Could not find ssh-agent process: %s", err.Error())
   }

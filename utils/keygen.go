@@ -9,6 +9,7 @@ import (
   "golang.org/x/crypto/ssh"
   "io/ioutil"
   "log"
+  "strings"
 )
 
 func CreateRSAKeyPair(savePrivateFileTo string, savePublicFileTo string) error {
@@ -98,4 +99,12 @@ func writeKeyToFile(keyBytes []byte, saveFileTo string) error {
 
   log.Printf("Key saved to: %s", saveFileTo)
   return nil
+}
+
+func GetPrivateKeyNameFromPub(name string) string {
+  if strings.HasSuffix(name, ".pub") {
+    return name[0 : len(name)-4]
+  }
+
+  return name + ".key"
 }

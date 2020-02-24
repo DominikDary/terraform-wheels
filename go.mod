@@ -17,4 +17,5 @@ require (
 	gopkg.in/hlandau/easymetric.v1 v1.0.0 // indirect
 	gopkg.in/hlandau/measurable.v1 v1.0.1 // indirect
 	gopkg.in/hlandau/passlib.v1 v1.0.10
+	gopkg.in/yaml.v2 v2.2.8
 )

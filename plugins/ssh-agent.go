@@ -3,7 +3,6 @@ package plugins
 import (
   "fmt"
   "os"
-  "strings"
 
   . "github.com/logrusorgru/aurora"
   . "github.com/mesosphere-incubator/terraform-launch/utils"
@@ -61,6 +60,7 @@ func (p *PluginSSHAgent) BeforeRun(project *ProjectSandbox, tf *TerraformWrapper
 
   p.agent = sshagent
   tf.SetEnv("SSH_AUTH_SOCK", sshagent.Socket)
+  tf.SetEnv("SSH_AGENT_PID", fmt.Sprintf("%d", sshagent.Pid))
 
   // Find the SSH keys used in the project
   var pubSSHKeys []string = nil
@@ -80,7 +80,7 @@ func (p *PluginSSHAgent) BeforeRun(project *ProjectSandbox, tf *TerraformWrapper
     if project.IsFileInSandbox(sshKey) && !project.HasFile(sshKey) {
       PrintInfo("Found a defined ssh key '%s', but missing from the project directory. Going to create a keypair for you", sshKey)
 
-      fPrivateKey := project.GetFilePath(getPrivateKeyNameFromPub(sshKey))
+      fPrivateKey := project.GetFilePath(GetPrivateKeyNameFromPub(sshKey))
       fPublicKey := project.GetFilePath(sshKey)
       err := CreateRSAKeyPair(fPrivateKey, fPublicKey)
       if err != nil {
@@ -89,7 +89,7 @@ func (p *PluginSSHAgent) BeforeRun(project *ProjectSandbox, tf *TerraformWrapper
     }
 
     // Try to deduce the private key from the public key
-    privKey := getPrivateKeyNameFromPub(sshKey)
+    privKey := GetPrivateKeyNameFromPub(sshKey)
     _, err = os.Stat(privKey)
     if err != nil {
       return fmt.Errorf("Could not find private key for %s (searching for %s)", Bold(sshKey), privKey)
@@ -117,12 +117,4 @@ func (p *PluginSSHAgent) GetCommands() []PluginCommand {
 
 func (p *PluginSSHAgent) ensureSSHKey() {
 
-}
-
-func getPrivateKeyNameFromPub(name string) string {
-  if strings.HasSuffix(name, ".pub") {
-    return name[0 : len(name)-4]
-  }
-
-  return name + ".key"
 }

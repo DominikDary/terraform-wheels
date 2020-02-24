@@ -79,8 +79,9 @@ func (p *PluginDcosAws) AfterRun(project *ProjectSandbox, tf *TerraformWrapper, 
     fmt.Println("the resources that are needed to be crated in order to deploy a DC/OS")
     fmt.Println("cluster on Amazon. Your next steps are:")
     fmt.Println("")
-    fmt.Printf("  1. %s plan -out=plan.out  # To prepare your deployment\n", os.Args[0])
-    fmt.Printf("  2. %s apply plan.out      # To create the deployment\n", os.Args[0])
+    fmt.Printf("  1. Open %s and adjust the configuration to your needs", p.createdFile)
+    fmt.Printf("  2. %s plan -out=plan.out  # To prepare your deployment\n", os.Args[0])
+    fmt.Printf("  3. %s apply plan.out      # To create the deployment\n", os.Args[0])
     fmt.Println("")
   }
   return nil
@@ -366,12 +367,17 @@ func (p *PluginDcosAwsCmdAddCluster) Handle(args []string, project *ProjectSandb
     ``,
     fmt.Sprintf(`  dcos_version = "%s"`, GetLatestDCOSVersion("open", "2.0.0")),
     ``,
+    `  ## If you have a DC/OS enterprise license, comment-out the following`,
+    `  ## lines and create a file "license.txt" in your project directory `,
+    `  ## containing the contents of your DC/OS license:`,
     `  # dcos_variant              = "ee"`,
     `  # dcos_license_key_contents = "${file("./license.txt")}"`,
-    `  # Make sure to set your credentials if you do not want the default EE`,
+    ``,
+    `  dcos_variant = "open"`,
+    ``,
+    `  ## (Optionally) Use different superuser credentials`,
     `  # dcos_superuser_username      = "superuser-name"`,
     `  # dcos_superuser_password_hash = "${file("./dcos_superuser_password_hash.sha512")}"`,
-    `  dcos_variant = "open"`,
     ``,
     `  dcos_instance_os             = "centos_7.5"`,
     `  bootstrap_instance_type      = "t2.medium"`,
@@ -405,7 +411,7 @@ func (p *PluginDcosAwsCmdAddCluster) Handle(args []string, project *ProjectSandb
     return err
   }
 
-  PrintInfo("%s", Bold("Writing "+fileName+" containing information for deploying a DC/OS cluster on AWS"))
+  PrintInfo("%s%s%s", Bold("Writing "), Bold(Green(fileName)), Bold(" containing information for deploying a DC/OS cluster on AWS"))
   p.parent.showInstructions = true
   p.parent.createdFile = fileName
 
