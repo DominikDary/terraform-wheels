@@ -72,41 +72,29 @@ It can parse configuration YAMLs and create the respective terraform definition,
     </tr>
     <tr>
         <td>
-            <pre>
-                dcos-launch -c cluster.yaml create
-                dcos-launch wait
-            </pre>
+            <pre>dcos-launch -c cluster.yaml create
+dcos-launch wait</pre>
         </td>
         <td>
-            <pre>
-                terraform-launch import-cluster cluster.yaml
-                terraform-launch plan -out=plan.out
-                terraform-launch apply plan.out
-            </pre>
+            <pre>terraform-launch import-cluster cluster.yaml
+terraform-launch plan -out=plan.out
+terraform-launch apply plan.out</pre>
         </td>
     </tr>
     <tr>
         <td>
-            <pre>
-                dcos-launch describe
-            </pre>
+            <pre>dcos-launch describe</pre>
         </td>
         <td>
-            <pre>
-                terraform-launch output -json
-            </pre>
+            <pre>terraform-launch output -json</pre>
         </td>
     </tr>
     <tr>
         <td>
-            <pre>
-                dcos-launch destroy
-            </pre>
+            <pre>dcos-launch destroy</pre>
         </td>
         <td>
-            <pre>
-                terraform-launch destroy -auto-approve
-            </pre>
+            <pre>terraform-launch destroy -auto-approve </pre>
         </td>
     </tr>
 </table>
