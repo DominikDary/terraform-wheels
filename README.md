@@ -16,6 +16,14 @@ It only provides the following _additional_ functionality:
 * Performs sanity checks to the terraform configuration files and provides helpful messages
 * It provides some additional commands to create terraform files from scratch.
 
+## Installation
+
+If you have a `go` build environment available, you can install it using:
+
+```
+go get -u github.com/mesosphere-incubator/terraform-launch
+```
+
 ## Usage
 
 ### Deploy a cluster on AWS
