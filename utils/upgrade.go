@@ -54,7 +54,7 @@ func GetLatestVersion() (LatestVersion, error) {
       return res, fmt.Errorf("invalid version info: invalid field `assets`")
     }
     if url, ok := mapInst["browser_download_url"].(string); ok {
-      if strings.HasSuffix(url, ".darwin") {
+      if strings.Contains(url, "darwin") {
         downloadUrl = url
         break
       }
