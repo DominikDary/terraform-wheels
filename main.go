@@ -5,10 +5,13 @@ import (
   "os"
   "strings"
 
-  // . "github.com/mesosphere-incubator/terraform-launch/codegen"
+  "github.com/Masterminds/semver/v3"
+  . "github.com/logrusorgru/aurora"
   . "github.com/mesosphere-incubator/terraform-launch/plugins"
   . "github.com/mesosphere-incubator/terraform-launch/utils"
 )
+
+var buildVersion string // Defined at build time
 
 var plugins []Plugin = []Plugin{
   CreatePluginImportCluster(),
@@ -31,6 +34,8 @@ func showMissingTerraformHelp() {
 func showPluginHelp() {
   fmt.Println("")
   fmt.Println("DC/OS Commands:")
+  fmt.Printf("    %-18s %s %s\n", "tool-upgrade", "Upgrade to the latest version of", os.Args[0])
+
   for _, plugin := range plugins {
     for _, cmd := range plugin.GetCommands() {
       fmt.Printf("    %-18s %s\n", cmd.GetName(), cmd.GetDescription())
@@ -115,12 +120,40 @@ func loadPlugins(sandbox *ProjectSandbox) []Plugin {
 }
 
 func main() {
+  // Early upgrade checks
+  if len(os.Args) > 1 {
+    cmd := os.Args[1]
+
+    if cmd == "tool-complete-upgrade" {
+      PrintInfo("🍺 Upgraded to latest version")
+      CompleteUpgrade(os.Args[2])
+      return
+
+    } else if cmd == "tool-upgrade" {
+      ver := semver.MustParse(buildVersion)
+      latest, err := GetLatestVersion()
+      if err != nil {
+        FatalError(err)
+      }
+
+      if latest.Version.Compare(ver) > 0 {
+        PrintInfo("Upgrading to %s", Bold(latest.Version.String()))
+        err = PerformUpgrade(latest)
+        if err != nil {
+          FatalError(err)
+        }
+      } else {
+        PrintInfo("You are running the latest released version")
+      }
+      return
+    }
+  }
+
+  // Get a work directory sandbox
   cwd, err := os.Getwd()
   if err != nil {
     FatalError(err)
   }
-
-  // Get a work directory sandbox
   sandbox, err := OpenSandbox(cwd)
   if err != nil {
     FatalError(err)
