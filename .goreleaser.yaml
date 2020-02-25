@@ -29,5 +29,7 @@ checksum:
 
 release:
   github:
+    owner: mesosphere-incubator
+    name: terraform-launch
   draft: true
   prerelease: auto
