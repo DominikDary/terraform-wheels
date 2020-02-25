@@ -24,6 +24,16 @@ func upstreamGetTerraform() (string, string, error) {
         "829bdba148afbd61eab4aafbc6087838f0333d8876624fe2ebc023920cfc2ad5",
         nil
     }
+  } else if runtime.GOOS == "windows" {
+    if runtime.GOARCH == "amd64" {
+      return "https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_windows_amd64.zip",
+        "bfec66e2ad079a1fab6101c19617a82ef79357dc1b92ddca80901bb8d5312dc0",
+        nil
+    } else if runtime.GOARCH == "386" {
+      return "https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_windows_386.zip",
+        "f2eb847761cba796f306880288083b4c68f5ae9dd86c6cff47023eecc9895f8f",
+        nil
+    }
   }
 
   return "", "", fmt.Errorf("You are running an unsupported OS/Arch combination")
