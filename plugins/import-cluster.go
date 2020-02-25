@@ -279,7 +279,7 @@ func (p *PluginImportClusterCmdImport) importAws(cfg *DcosLaunchInputConfig, pro
   var lines []string = nil
 
   if cfg.InstallPrereqs {
-    PrintInfo("Ignoring `install_prereqs` since it's always implied")
+    PrintWarning("Ignoring `install_prereqs` since it's always implied")
   }
 
   if cfg.DeploymentName != "" {
@@ -290,6 +290,8 @@ func (p *PluginImportClusterCmdImport) importAws(cfg *DcosLaunchInputConfig, pro
   }
 
   if cfg.OsName != "" {
+    PrintWarning("Consider removing `os_name` if you are not using a customized DC/OS AMI. " +
+      "The Universal Installer already provides the recommended default.")
     lines = append(
       lines,
       fmt.Sprintf(`aws_ami = "%s"`, cfg.OsName),
@@ -319,7 +321,23 @@ func (p *PluginImportClusterCmdImport) importAws(cfg *DcosLaunchInputConfig, pro
     lines = append(lines, fmt.Sprintf(`dcos_variant = "open"`))
   } else {
     if _, ok := cfg.DcosConfig["variant"]; !ok {
+      eeFlag := false
+
+      // If we have a license key, assume that's an enterprise variant
       if _, ok := cfg.DcosConfig["license_key_contents"]; ok {
+        eeFlag = true
+      } else {
+        // Otherwise, check if we are using a custom installer, and it contains
+        // a pointer to an enterprise release. Older DC/OS versions did not
+        // require an enterprise license to run.
+        if cfg.DcosInstallerUrl != "" {
+          if strings.Contains(cfg.DcosInstallerUrl, ".ee.") {
+            eeFlag = true
+          }
+        }
+      }
+
+      if eeFlag {
         lines = append(lines, fmt.Sprintf(`dcos_variant = "ee"`))
       } else {
         lines = append(lines, fmt.Sprintf(`dcos_variant = "open"`))
@@ -411,7 +429,7 @@ func (p *PluginImportClusterCmdImport) impotExtraVolumes(cfg *DcosLaunchInputCon
               PrintWarning("Error in volume '%s': 'Encrypted' is not supported", expr)
             }
             if _, ok := devEbsMap["DeleteOnTermination"]; ok {
-              PrintInfo("Ignoring 'DeleteOnTermination' on volume %s: Terraform will always remove it during destroy", devNameStr)
+              PrintWarning("Ignoring 'DeleteOnTermination' on volume %s: Terraform will always remove it during destroy", devNameStr)
             }
 
             volLines = append(volLines, "{")
@@ -452,6 +470,48 @@ func (p *PluginImportClusterCmdImport) impotExtraVolumes(cfg *DcosLaunchInputCon
   }
 
   return lines, nil
+}
+
+func (p *PluginImportClusterCmdImport) importOnpremAws(inputConfig *DcosLaunchInputConfig, project *ProjectSandbox) ([]string, error) {
+  var cfgLines []string = nil
+
+  // Import sections
+  chunk, err := p.importSSHKeys(inputConfig, project)
+  if err != nil {
+    return nil, err
+  } else {
+    cfgLines = append(cfgLines, chunk...)
+  }
+
+  chunk, err = p.importAws(inputConfig, project)
+  if err != nil {
+    return nil, err
+  } else {
+    cfgLines = append(cfgLines, chunk...)
+  }
+
+  chunk, err = p.importDcosConfig(inputConfig.DcosConfig, project)
+  if err != nil {
+    return nil, err
+  } else {
+    cfgLines = append(cfgLines, chunk...)
+  }
+
+  chunk, err = p.impotExtraVolumes(inputConfig, project)
+  if err != nil {
+    return nil, err
+  } else {
+    cfgLines = append(cfgLines, chunk...)
+  }
+
+  chunk, err = p.importTags(inputConfig, project)
+  if err != nil {
+    return nil, err
+  } else {
+    cfgLines = append(cfgLines, chunk...)
+  }
+
+  return cfgLines, nil
 }
 
 func (p *PluginImportClusterCmdImport) PrintHelp() {
@@ -502,6 +562,10 @@ func (p *PluginImportClusterCmdImport) Handle(args []string, project *ProjectSan
     return fmt.Errorf("Could not parse %s: %s", cfgFilename, err.Error())
   }
 
+  if inputConfig.DeploymentName != "" {
+    fileName = fmt.Sprintf("cluster-%s.tf", inputConfig.DeploymentName)
+  }
+
   // We currently only support provider: onprem and platform: aws
   if inputConfig.Provider != "onprem" {
     return fmt.Errorf("Unsupported provider '%s' we only support: onprem", inputConfig.Provider)
@@ -510,46 +574,13 @@ func (p *PluginImportClusterCmdImport) Handle(args []string, project *ProjectSan
     return fmt.Errorf("Unsupported platform '%s' we only support: aws", inputConfig.Platform)
   }
 
-  if inputConfig.DeploymentName != "" {
-    fileName = fmt.Sprintf("cluster-%s.tf", inputConfig.DeploymentName)
+  if inputConfig.GenconfDir != "" {
+    return fmt.Errorf("Custom `genconf_dir` is not supported with terraform")
   }
 
-  var cfgLines []string = nil
-
-  // Import sections
-  chunk, err := p.importSSHKeys(&inputConfig, project)
+  cfgLines, err := p.importOnpremAws(&inputConfig, project)
   if err != nil {
     return err
-  } else {
-    cfgLines = append(cfgLines, chunk...)
-  }
-
-  chunk, err = p.importAws(&inputConfig, project)
-  if err != nil {
-    return err
-  } else {
-    cfgLines = append(cfgLines, chunk...)
-  }
-
-  chunk, err = p.importDcosConfig(inputConfig.DcosConfig, project)
-  if err != nil {
-    return err
-  } else {
-    cfgLines = append(cfgLines, chunk...)
-  }
-
-  chunk, err = p.impotExtraVolumes(&inputConfig, project)
-  if err != nil {
-    return err
-  } else {
-    cfgLines = append(cfgLines, chunk...)
-  }
-
-  chunk, err = p.importTags(&inputConfig, project)
-  if err != nil {
-    return err
-  } else {
-    cfgLines = append(cfgLines, chunk...)
   }
 
   // Collect default lines

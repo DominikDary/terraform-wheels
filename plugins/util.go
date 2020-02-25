@@ -44,6 +44,8 @@ func interfaceToLines(iface interface{}, path string, lines []string) []string {
         segLines = append(segLines, fmt.Sprintf("    %s = %s,", k, ToJson(sv)))
       case int:
         segLines = append(segLines, fmt.Sprintf("    %s = %s,", k, ToJson(sv)))
+      case float64:
+        segLines = append(segLines, fmt.Sprintf("    %s = %s,", k, ToJson(sv)))
       case bool:
         segLines = append(segLines, fmt.Sprintf("    %s = %s,", k, ToJson(sv)))
       default:
@@ -65,11 +67,12 @@ func interfaceToLines(iface interface{}, path string, lines []string) []string {
     }
 
   default:
+    fmt.Printf("Type: <%T> %#v\n", v, v)
     ret = append(ret, []string{
       `section {`,
       fmt.Sprintf(`  path = "%s"`, path),
-      fmt.Sprintf(`  json = <<<EOF`),
-      fmt.Sprintf(`    %s`, ToJson(iface)),
+      fmt.Sprintf(`  json = <<EOF`),
+      fmt.Sprintf(`  %s`, ToJson(iface)),
       fmt.Sprintf(`  EOF`),
       `}`,
     }...)
