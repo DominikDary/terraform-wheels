@@ -333,7 +333,6 @@ func (s *ProjectSandbox) WriteFile(file string, contents []byte) error {
 
 func (s *ProjectSandbox) WriteFormattedTerraformFile(file string, contents []byte) error {
   contents, err := printer.Format(contents)
-  fmt.Println("'" + string(contents) + "'")
   if err != nil {
     return fmt.Errorf("Could not format output: %s", err.Error())
   }

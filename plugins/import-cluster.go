@@ -10,19 +10,19 @@ import (
 
   . "github.com/logrusorgru/aurora"
   . "github.com/mesosphere-incubator/terraform-launch/utils"
-  "gopkg.in/yaml.v2"
+  "gopkg.in/yaml.v3"
 )
 
 type DcosLaunchInputConfig struct {
   // Universal Parameters
-  KeyHelper             bool              `yaml:"key_helper"`
-  Provider              string            `yaml:"provider"`
-  SshPort               int               `yaml:"ssh_port"`
-  SshPrivateKey         string            `yaml:"ssh_private_key"`
-  SshPrivateKeyFilename string            `yaml:"ssh_private_key_filename"`
-  SshUser               string            `yaml:"ssh_user"`
-  Tags                  map[string]string `yaml:"tags"`
-  ZenHelper             bool              `yaml:"zen_helper"`
+  KeyHelper             bool                   `yaml:"key_helper"`
+  Provider              string                 `yaml:"provider"`
+  SshPort               int                    `yaml:"ssh_port"`
+  SshPrivateKey         string                 `yaml:"ssh_private_key"`
+  SshPrivateKeyFilename string                 `yaml:"ssh_private_key_filename"`
+  SshUser               string                 `yaml:"ssh_user"`
+  Tags                  map[string]interface{} `yaml:"tags"`
+  ZenHelper             bool                   `yaml:"zen_helper"`
 
   // (Undocumented)
   Enterprise bool `yaml:"dcos-enterprise"`
@@ -50,13 +50,13 @@ type DcosLaunchInputConfig struct {
   // AWS On-Prem
   AwsRegion              string                   `yaml:"aws_region"`
   AdminLocation          string                   `yaml:"admin_location"`
-  AwsBlockDeviceMappings []map[string]interface{} `yaml:"aws_block_device_mappings"`
   AwsKeyName             string                   `yaml:"aws_key_name"`
   BootstrapSshUser       string                   `yaml:"bootstrap_ssh_user"`
-  IamRolePermissions     []map[string]string      `yaml:"iam_role_permissions"`
   InstanceDeviceName     string                   `yaml:"instance_device_name"`
   InstanceType           string                   `yaml:"instance_type"`
   OsName                 string                   `yaml:"os_name"`
+  AwsBlockDeviceMappings []map[string]interface{} `yaml:"aws_block_device_mappings"`
+  IamRolePermissions     []map[string]interface{} `yaml:"iam_role_permissions"`
 }
 
 type PluginImportCluster struct {
@@ -358,6 +358,102 @@ func (p *PluginImportClusterCmdImport) importAws(cfg *DcosLaunchInputConfig, pro
   return lines, nil
 }
 
+func (p *PluginImportClusterCmdImport) impotExtraVolumes(cfg *DcosLaunchInputConfig, project *ProjectSandbox) ([]string, error) {
+  var volLines []string = nil
+
+  for _, m := range cfg.AwsBlockDeviceMappings {
+    expr := fmt.Sprintf("%#v", m)
+
+    //
+    // Mapping from Boto:
+    // > https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html#EC2.Client.create_image
+    // To Terraform:
+    // > https://www.terraform.io/docs/providers/aws/r/ebs_volume.html#argument-reference
+    // Through the machinery:
+    // > https://github.com/dcos-terraform/terraform-aws-instance/blob/support/0.2.x/main.tf#L123
+    //
+    if devName, ok := m["DeviceName"]; ok {
+      if devNameStr, ok := devName.(string); ok {
+        if devEbs, ok := m["Ebs"]; ok {
+          if devEbsMap, ok := devEbs.(map[string]interface{}); ok {
+            xSize := 0
+            xIops := 0
+            xType := ""
+
+            if vSz, ok := devEbsMap["VolumeSize"]; ok {
+              if vSzInt, ok := vSz.(int); ok {
+                xSize = vSzInt
+              } else {
+                PrintWarning("Error in volume '%s': 'VolumeSize' is not an integer", expr)
+              }
+            }
+            if vIops, ok := devEbsMap["Iops"]; ok {
+              if vIopsInt, ok := vIops.(int); ok {
+                xIops = vIopsInt
+              } else {
+                PrintWarning("Error in volume '%s': 'Iops' is not an integer", expr)
+              }
+            }
+            if vType, ok := devEbsMap["VolumeType"]; ok {
+              if vTypeStr, ok := vType.(string); ok {
+                xType = vTypeStr
+              } else {
+                PrintWarning("Error in volume '%s': 'VolumeType' is not a string", expr)
+              }
+            }
+            if _, ok := devEbsMap["SnapshotId"]; ok {
+              PrintWarning("Error in volume '%s': 'SnapshotId' is not supported", expr)
+            }
+            if _, ok := devEbsMap["KmsKeyId"]; ok {
+              PrintWarning("Error in volume '%s': 'KmsKeyId' is not supported", expr)
+            }
+            if _, ok := devEbsMap["Encrypted"]; ok {
+              PrintWarning("Error in volume '%s': 'Encrypted' is not supported", expr)
+            }
+            if _, ok := devEbsMap["DeleteOnTermination"]; ok {
+              PrintInfo("Ignoring 'DeleteOnTermination' on volume %s: Terraform will always remove it during destroy", devNameStr)
+            }
+
+            volLines = append(volLines, "{")
+            volLines = append(volLines, fmt.Sprintf("device_name = %s", FormatJSON(devNameStr)))
+            if xSize > 0 {
+              volLines = append(volLines, fmt.Sprintf("size = %d", xSize))
+            }
+            if xIops > 0 {
+              volLines = append(volLines, fmt.Sprintf("iops = %d", xIops))
+            }
+            if xType != "" {
+              volLines = append(volLines, fmt.Sprintf("type = %s", FormatJSON(xType)))
+            }
+            volLines = append(volLines, "},")
+
+          } else {
+            PrintWarning("Not importing volume '%s': Invalid 'Ebs'", expr)
+          }
+        } else {
+          PrintWarning("Not importing volume '%s': Missing 'Ebs'", expr)
+        }
+      } else {
+        PrintWarning("Not importing volume '%s': Invalid 'DeviceName'", expr)
+      }
+    } else {
+      PrintWarning("Not importing volume '%s': Missing 'DeviceName'", expr)
+    }
+  }
+
+  var lines []string
+  if len(volLines) > 0 {
+    lines = append(lines, "private_agents_extra_volumes = [")
+    lines = append(lines, volLines...)
+    lines = append(lines, "]")
+    lines = append(lines, "public_agents_extra_volumes = [")
+    lines = append(lines, volLines...)
+    lines = append(lines, "]")
+  }
+
+  return lines, nil
+}
+
 func (p *PluginImportClusterCmdImport) PrintHelp() {
   fmt.Printf("Usage: %s %s [-help] [options] filename.yaml\n", os.Args[0], Bold(p.GetName()))
   fmt.Println("")
@@ -392,6 +488,9 @@ func (p *PluginImportClusterCmdImport) Handle(args []string, project *ProjectSan
   }
 
   cfgFilename := fSet.Args()[0]
+
+  PrintInfo("%s %s", "Importing dcos-lauch config YAML from", Bold(cfgFilename))
+
   configContents, err := ioutil.ReadFile(cfgFilename)
   if err != nil {
     return fmt.Errorf("Could not load %s: %s", cfgFilename, err.Error())
@@ -433,6 +532,13 @@ func (p *PluginImportClusterCmdImport) Handle(args []string, project *ProjectSan
   }
 
   chunk, err = p.importDcosConfig(inputConfig.DcosConfig, project)
+  if err != nil {
+    return err
+  } else {
+    cfgLines = append(cfgLines, chunk...)
+  }
+
+  chunk, err = p.impotExtraVolumes(&inputConfig, project)
   if err != nil {
     return err
   } else {
@@ -496,8 +602,6 @@ func (p *PluginImportClusterCmdImport) Handle(args []string, project *ProjectSan
 
   contents := []byte(strings.Join(allLines, "\n"))
 
-  fmt.Println(string(contents))
-
-  PrintInfo("%s", Bold("Writing "+fileName+" containing information for deploying a DC/OS cluster on AWS"))
+  PrintInfo("%s%s%s", Bold("Writing "), Bold(Green(fileName)), Bold(" containing information for deploying a DC/OS cluster on AWS"))
   return project.WriteFormattedTerraformFile(fileName, contents)
 }

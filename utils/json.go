@@ -3,6 +3,7 @@ package utils
 import (
   "bytes"
   "encoding/json"
+  "fmt"
 )
 
 /**
@@ -15,7 +16,7 @@ func FormatJSON(anyJson interface{}) string {
 
   bt, err := json.Marshal(anyJson)
   if err != nil {
-    return "{ <invalid json> }"
+    return fmt.Sprintf("{ <invalid json: %s> }", err.Error())
   }
 
   // Pretty-print
