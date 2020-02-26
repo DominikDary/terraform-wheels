@@ -34,6 +34,14 @@ If you have a `go` build environment available, you can install it using:
 go get -u github.com/mesosphere-incubator/terraform-launch
 ```
 
+## Upgrading
+
+The tool supports self-upgrade, so if you want to get the latest released version, just do:
+
+```sh
+terraform-launch launch-upgrade
+```
+
 ## Usage
 
 ### Deploy a cluster on AWS
