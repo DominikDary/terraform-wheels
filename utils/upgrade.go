@@ -121,7 +121,9 @@ func PerformUpgrade(newVersion LatestVersion) error {
   os.Chmod(replaceTarget, 0755)
 
   // Run the new version that is going to remove the backup file
-  cmd := exec.Command(replaceTarget, "tool-complete-upgrade", bakTarget)
+  cmd := exec.Command(replaceTarget, "launch-complete-upgrade", bakTarget)
+  cmd.Stdout = os.Stdout
+  cmd.Stderr = os.Stderr
   err = cmd.Start()
   if err != nil {
     os.Rename(replaceTarget, replaceTarget+".check")

@@ -11,7 +11,7 @@ import (
   . "github.com/mesosphere-incubator/terraform-launch/utils"
 )
 
-var buildVersion string // Defined at build time
+var buildVersion string = "v0.0.0" // Defined at build time
 
 var plugins []Plugin = []Plugin{
   CreatePluginImportCluster(),
@@ -19,6 +19,13 @@ var plugins []Plugin = []Plugin{
   CreatePluginSSHAgent(),
   CreatePluginAddService(),
   CreatePluginDcosProvider(),
+}
+
+var knownTerraformCommands []string = []string{
+  "apply", "console", "destroy", "env", "fmt", "get", "graph", "import", "init",
+  "output", "plan", "providers", "push", "refresh", "show", "taint", "untaint",
+  "validate", "version", "workspace", "0.12checklist", "debug", "force-unlock",
+  "state",
 }
 
 func showMissingTerraformHelp() {
@@ -34,7 +41,8 @@ func showMissingTerraformHelp() {
 func showPluginHelp() {
   fmt.Println("")
   fmt.Println("DC/OS Commands:")
-  fmt.Printf("    %-18s %s %s\n", "tool-upgrade", "Upgrade to the latest version of", os.Args[0])
+  fmt.Printf("    %-18s %s %s\n", "launch-version", "Check the version of %s", os.Args[0])
+  fmt.Printf("    %-18s %s %s\n", "launch-upgrade", "Upgrade to the latest version of %s", os.Args[0])
 
   for _, plugin := range plugins {
     for _, cmd := range plugin.GetCommands() {
@@ -124,12 +132,16 @@ func main() {
   if len(os.Args) > 1 {
     cmd := os.Args[1]
 
-    if cmd == "tool-complete-upgrade" {
+    if cmd == "launch-complete-upgrade" {
       PrintInfo("🍺 Upgraded to latest version")
       CompleteUpgrade(os.Args[2])
       return
 
-    } else if cmd == "tool-upgrade" {
+    } else if cmd == "launch-version" {
+      PrintInfo("You are using terraform-launch version %s", Bold(buildVersion))
+      return
+
+    } else if cmd == "launch-upgrade" {
       ver := semver.MustParse(buildVersion)
       latest, err := GetLatestVersion()
       if err != nil {
@@ -137,7 +149,7 @@ func main() {
       }
 
       if latest.Version.Compare(ver) > 0 {
-        PrintInfo("Upgrading to %s", Bold(latest.Version.String()))
+        PrintInfo("Upgrading from %s to %s", Bold(buildVersion), Bold(latest.Version.String()))
         err = PerformUpgrade(latest)
         if err != nil {
           FatalError(err)
@@ -159,13 +171,11 @@ func main() {
     FatalError(err)
   }
 
-  // sandbox.PrintVariableDefs()
-  // return
-
-  // isEmpty, err := sandbox.IsEmpty()
-  // if err != nil {
-  //  FatalError(err)
-  // }
+  // Handle help prompt early
+  if len(os.Args) <= 1 || strings.Contains(os.Args[1], "help") {
+    showHelp(sandbox)
+    return
+  }
 
   // Check the sandbox status
   hasTfFiles, err := sandbox.HasTerraformFiles()
@@ -173,14 +183,19 @@ func main() {
     FatalError(err)
   }
 
-  // Handle help prompt early
-  if len(os.Args) <= 1 || strings.Contains(os.Args[1], "help") {
-    showHelp(sandbox)
-    return
-  }
-
   // Check if this is a plugin command and delegate it to the respective handler
   if len(os.Args) > 1 {
+
+    // Check if we were invoked a valid terraform command
+    isTerraformCommand := false
+    for _, cmd := range knownTerraformCommands {
+      for _, arg := range os.Args[1:] {
+        if arg == cmd {
+          isTerraformCommand = true
+          break
+        }
+      }
+    }
 
     // Ignore flags until we find a command
     cmd_n := ""
@@ -236,6 +251,12 @@ func main() {
           return
         }
       }
+    }
+
+    // Check if this is not a terraform command neither
+    if !isTerraformCommand {
+      showHelp(sandbox)
+      return
     }
   }
 
