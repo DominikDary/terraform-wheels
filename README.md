@@ -18,6 +18,8 @@ It only provides the following _additional_ functionality:
 
 ## Installation
 
+> 💁‍♂️ TIP: Consider `alias tw=terraform-wheel` to simplify your workflow
+
 ### Getting the binary
 
 You can download the pre-compiled binary from the [releases page](https://github.com/mesosphere-incubator/terraform-wheels/releases) using:
