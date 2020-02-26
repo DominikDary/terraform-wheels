@@ -18,6 +18,16 @@ It only provides the following _additional_ functionality:
 
 ## Installation
 
+### Getting the binary
+
+You can download the pre-compiled binary from the [releases page](https://github.com/mesosphere-incubator/terraform-launch/releases) using:
+
+```
+curl -L https://github.com/mesosphere-incubator/terraform-launch/releases/download/v0.0.2/terraform-launch-darwin-amd64.tar.gz | tar -zx -C /usr/local/bin
+```
+
+### Compiling from source
+
 If you have a `go` build environment available, you can install it using:
 
 ```

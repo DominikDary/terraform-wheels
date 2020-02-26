@@ -11,7 +11,7 @@ import (
   . "github.com/mesosphere-incubator/terraform-launch/utils"
 )
 
-var buildVersion string = "v0.0.0" // Defined at build time
+var buildVersion string // Defined at build time
 
 var plugins []Plugin = []Plugin{
   CreatePluginImportCluster(),
