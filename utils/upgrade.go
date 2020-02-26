@@ -25,7 +25,7 @@ func GetLatestVersion() (LatestVersion, error) {
   res := LatestVersion{}
 
   // Download latest version
-  byt, err := Download("http://api.github.com/repos/mesosphere-incubator/terraform-launch/releases/latest", WithDefaults).
+  byt, err := Download("http://api.github.com/repos/mesosphere-incubator/terraform-wheels/releases/latest", WithDefaults).
     EventuallyReadAll()
 
   // Parse contents
@@ -121,7 +121,7 @@ func PerformUpgrade(newVersion LatestVersion) error {
   os.Chmod(replaceTarget, 0755)
 
   // Run the new version that is going to remove the backup file
-  cmd := exec.Command(replaceTarget, "launch-complete-upgrade", bakTarget)
+  cmd := exec.Command(replaceTarget, "wheels-complete-upgrade", bakTarget)
   cmd.Stdout = os.Stdout
   cmd.Stderr = os.Stderr
   err = cmd.Start()

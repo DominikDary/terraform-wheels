@@ -7,8 +7,8 @@ import (
 
   "github.com/Masterminds/semver/v3"
   . "github.com/logrusorgru/aurora"
-  . "github.com/mesosphere-incubator/terraform-launch/plugins"
-  . "github.com/mesosphere-incubator/terraform-launch/utils"
+  . "github.com/mesosphere-incubator/terraform-wheels/plugins"
+  . "github.com/mesosphere-incubator/terraform-wheels/utils"
 )
 
 var buildVersion string // Defined at build time
@@ -41,8 +41,8 @@ func showMissingTerraformHelp() {
 func showPluginHelp() {
   fmt.Println("")
   fmt.Println("DC/OS Commands:")
-  fmt.Printf("    %-18s %s %s\n", "launch-version", "Check the version of %s", os.Args[0])
-  fmt.Printf("    %-18s %s %s\n", "launch-upgrade", "Upgrade to the latest version of %s", os.Args[0])
+  fmt.Printf("    %-18s %s %s\n", "wheels-version", "Check the version of", os.Args[0])
+  fmt.Printf("    %-18s %s %s\n", "wheels-upgrade", "Upgrade to the latest version of", os.Args[0])
 
   for _, plugin := range plugins {
     for _, cmd := range plugin.GetCommands() {
@@ -132,16 +132,16 @@ func main() {
   if len(os.Args) > 1 {
     cmd := os.Args[1]
 
-    if cmd == "launch-complete-upgrade" {
+    if cmd == "wheels-complete-upgrade" {
       PrintInfo("🍺 Upgraded to latest version")
       CompleteUpgrade(os.Args[2])
       return
 
-    } else if cmd == "launch-version" {
-      PrintInfo("You are using terraform-launch version %s", Bold(buildVersion))
+    } else if cmd == "wheels-version" {
+      PrintInfo("You are using terraform-wheels version %s", Bold(buildVersion))
       return
 
-    } else if cmd == "launch-upgrade" {
+    } else if cmd == "wheels-upgrade" {
       ver := semver.MustParse(buildVersion)
       latest, err := GetLatestVersion()
       if err != nil {

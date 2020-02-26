@@ -9,7 +9,7 @@ import (
   "strings"
 
   . "github.com/logrusorgru/aurora"
-  . "github.com/mesosphere-incubator/terraform-launch/utils"
+  . "github.com/mesosphere-incubator/terraform-wheels/utils"
   "gopkg.in/yaml.v3"
 )
 
@@ -612,7 +612,7 @@ func (p *PluginImportClusterCmdImport) Handle(args []string, project *ProjectSan
     `  admin_ips                  = ["${data.http.whatismyip.body}/32"]`,
   }
 
-  // The output variables must match the JSON file returned by dcos-launch
+  // The output variables must match the JSON file returned by dcos-wheels
   postLines := []string{
     `}`,
     ``,

@@ -1,4 +1,4 @@
-# 🚲 terraform-launch
+# 🚲 terraform-wheels
 
 > Terraform training wheels for DC/OS Users
 
@@ -6,7 +6,7 @@ This project helps you getting started with terraform-based deployments if you a
 
 ## Description
 
-The `terraform-launch` is a pass-through  wrapper around terraform. This means that they are 100% command-line compatible with `terraform`.
+The `terraform-wheels` is a pass-through  wrapper around terraform. This means that they are 100% command-line compatible with `terraform`.
 
 It only provides the following _additional_ functionality:
 
@@ -20,10 +20,10 @@ It only provides the following _additional_ functionality:
 
 ### Getting the binary
 
-You can download the pre-compiled binary from the [releases page](https://github.com/mesosphere-incubator/terraform-launch/releases) using:
+You can download the pre-compiled binary from the [releases page](https://github.com/mesosphere-incubator/terraform-wheels/releases) using:
 
 ```
-curl -L https://github.com/mesosphere-incubator/terraform-launch/releases/download/v0.0.2/terraform-launch-darwin-amd64.tar.gz | tar -zx -C /usr/local/bin
+curl -L https://github.com/mesosphere-incubator/terraform-wheels/releases/download/v0.0.2/terraform-wheels-darwin-amd64.tar.gz | tar -zx -C /usr/local/bin
 ```
 
 ### Compiling from source
@@ -31,7 +31,7 @@ curl -L https://github.com/mesosphere-incubator/terraform-launch/releases/downlo
 If you have a `go` build environment available, you can install it using:
 
 ```
-go get -u github.com/mesosphere-incubator/terraform-launch
+go get -u github.com/mesosphere-incubator/terraform-wheels
 ```
 
 ## Upgrading
@@ -39,7 +39,7 @@ go get -u github.com/mesosphere-incubator/terraform-launch
 The tool supports self-upgrade, so if you want to get the latest released version, just do:
 
 ```sh
-terraform-launch launch-upgrade
+terraform-wheels launch-upgrade
 ```
 
 ## Usage
@@ -47,17 +47,17 @@ terraform-launch launch-upgrade
 ### Deploy a cluster on AWS
 
 1. Create an empty directory and chdir into it
-2. Run `terraform-launch add-aws-cluster` to create a DC/OS cluster deployment file
+2. Run `terraform-wheels add-aws-cluster` to create a DC/OS cluster deployment file
 3. Open `cluster-aws.tf` and adjust the parameters to your needs
 4. Deploy your cluster doing:
     ```sh
-    terraform-launch plan -out=plan.out
-    terraform-launch apply plan.out
+    terraform-wheels plan -out=plan.out
+    terraform-wheels apply plan.out
     ```
 
 5. To destroy the cluster do:
     ```sh
-    terraform-launch destroy
+    terraform-wheels destroy
     ```
 
 ### Deploy a DC/OS package from universe
@@ -66,24 +66,24 @@ terraform-launch launch-upgrade
 > You can even run it after you have added a DC/OS cluster definition; in
 > which case both a cluster and your service will be provisioned for you.
 
-1. Run `terraform-launch add-package -package=<name>` to create a service deployment file. The `<name>` is the package name as found in DC/OS universe. 
+1. Run `terraform-wheels add-package -package=<name>` to create a service deployment file. The `<name>` is the package name as found in DC/OS universe. 
 2. Open `service-<name>.tf` and adjust it to your needs 
 3. Deploy your package doing:
     ```sh
-    terraform-launch plan -out=plan.out
-    terraform-launch apply plan.out
+    terraform-wheels plan -out=plan.out
+    terraform-wheels apply plan.out
     ```
 
 4. To remove the package do:
     ```sh
-    terraform-launch destroy
+    terraform-wheels destroy
     ```
 
-### As `dcos-launch` replacement
+### As `dcos-wheels` replacement
 
 > ℹ️ This is an experimental feature, please report bugs
 
-The `terraform-launch` utility can be used as an interim, drop-in replacement to `dcos-launch` in order to help you migrate to Universal Installer.
+The `terraform-wheels` utility can be used as an interim, drop-in replacement to `dcos-wheels` in order to help you migrate to Universal Installer.
 
 It can parse configuration YAMLs and create the respective terraform definition, enabling pure terraform interfacing from this point onwards.
 
@@ -98,29 +98,29 @@ It can parse configuration YAMLs and create the respective terraform definition,
     </tr>
     <tr>
         <td>
-            <pre>dcos-launch -c cluster.yaml create
-dcos-launch wait</pre>
+            <pre>dcos-wheels -c cluster.yaml create
+dcos-wheels wait</pre>
         </td>
         <td>
-            <pre>terraform-launch import-cluster cluster.yaml
-terraform-launch plan -out=plan.out
-terraform-launch apply plan.out</pre>
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <pre>dcos-launch describe</pre>
-        </td>
-        <td>
-            <pre>terraform-launch output -json</pre>
+            <pre>terraform-wheels import-cluster cluster.yaml
+terraform-wheels plan -out=plan.out
+terraform-wheels apply plan.out</pre>
         </td>
     </tr>
     <tr>
         <td>
-            <pre>dcos-launch destroy</pre>
+            <pre>dcos-wheels describe</pre>
         </td>
         <td>
-            <pre>terraform-launch destroy -auto-approve </pre>
+            <pre>terraform-wheels output -json</pre>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <pre>dcos-wheels destroy</pre>
+        </td>
+        <td>
+            <pre>terraform-wheels destroy -auto-approve </pre>
         </td>
     </tr>
 </table>

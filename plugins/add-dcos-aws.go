@@ -8,7 +8,7 @@ import (
   "os/user"
 
   . "github.com/logrusorgru/aurora"
-  . "github.com/mesosphere-incubator/terraform-launch/utils"
+  . "github.com/mesosphere-incubator/terraform-wheels/utils"
   "gopkg.in/hlandau/passlib.v1"
   "gopkg.in/hlandau/passlib.v1/abstract"
   "gopkg.in/hlandau/passlib.v1/hash/sha2crypt"

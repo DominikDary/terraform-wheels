@@ -7,7 +7,7 @@ import (
   "strings"
 
   . "github.com/logrusorgru/aurora"
-  . "github.com/mesosphere-incubator/terraform-launch/utils"
+  . "github.com/mesosphere-incubator/terraform-wheels/utils"
 )
 
 type PluginAddService struct {

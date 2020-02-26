@@ -1,4 +1,4 @@
-module github.com/mesosphere-incubator/terraform-launch
+module github.com/mesosphere-incubator/terraform-wheels
 
 go 1.13
 

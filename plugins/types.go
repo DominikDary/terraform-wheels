@@ -1,7 +1,7 @@
 package plugins
 
 import (
-	. "github.com/mesosphere-incubator/terraform-launch/utils"
+	. "github.com/mesosphere-incubator/terraform-wheels/utils"
 )
 
 type PluginCommand interface {
