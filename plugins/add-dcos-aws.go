@@ -43,9 +43,8 @@ func (p *PluginDcosAws) BeforeRun(project *ProjectSandbox, tf *TerraformWrapper,
       if ok {
         PrintInfo("Your AWS credentials have expired, going to refresh them using %s", Bold("maws"))
 
-        _, _, serr, err := ExecuteAndCollect([]string{}, "maws", "login", profile)
+        _, _, _, err := ExecuteAndCollect([]string{}, "maws", "login", profile)
         if err != nil {
-          fmt.Println(serr)
           FatalError(fmt.Errorf("Failed to login with `maws`, please retry manually"))
         }
 
@@ -72,17 +71,23 @@ func (p *PluginDcosAws) BeforeRun(project *ProjectSandbox, tf *TerraformWrapper,
 
 func (p *PluginDcosAws) AfterRun(project *ProjectSandbox, tf *TerraformWrapper, tfErr error) error {
   if p.showInstructions {
-    fmt.Println("")
-    fmt.Println(Bold("You can now delpoy a cluster on Amazon AWS"))
-    fmt.Println("")
-    fmt.Printf("The file %s was generated in your project directory and it describes\n", p.createdFile)
-    fmt.Println("the resources that are needed to be crated in order to deploy a DC/OS")
-    fmt.Println("cluster on Amazon. Your next steps are:")
-    fmt.Println("")
-    fmt.Printf("  1. Open %s and adjust the configuration to your needs", p.createdFile)
-    fmt.Printf("  2. %s plan -out=plan.out  # To prepare your deployment\n", os.Args[0])
-    fmt.Printf("  3. %s apply plan.out      # To create the deployment\n", os.Args[0])
-    fmt.Println("")
+    PrintMessage([]interface{}{
+      "",
+      Bold("You can now delpoy a cluster on Amazon AWS"),
+      "",
+      fmt.Sprintf("The file %s was generated in your project directory and it describes\n", p.createdFile),
+      "the resources that are needed to be crated in order to deploy a DC/OS",
+      "cluster on Amazon. Your next steps are:",
+      "",
+      fmt.Sprintf("The file %s was generated in your project directory and it describes\n", p.createdFile),
+      "the resources that are needed to be crated in order to deploy a DC/OS",
+      "cluster on Amazon. Your next steps are:",
+      "",
+      fmt.Sprintf("  1. Open %s and adjust the configuration to your needs", p.createdFile),
+      fmt.Sprintf("  2. %s plan -out=plan.out  # To prepare your deployment\n", os.Args[0]),
+      fmt.Sprintf("  3. %s apply plan.out      # To create the deployment\n", os.Args[0]),
+      "",
+    })
   }
   return nil
 }
@@ -308,14 +313,11 @@ func (p *PluginDcosAwsCmdAddCluster) Handle(args []string, project *ProjectSandb
   }
 
   if *help {
-    fmt.Printf("Usage: %s %s [-help] [options]\n", os.Args[0], Bold(p.GetName()))
-    fmt.Println("")
-    fmt.Printf("This command will generate a '%s' file in the project directory\n", fileName)
-    fmt.Println("that describes a deployment of a DC/OS cluster on AWS. A file with sane defaults")
-    fmt.Println("is created for you. You can override the values with the following flags:")
-    fmt.Println("")
-    fmt.Println("Options:")
-    tfc.PrintOptionHelp()
+    PrintHelp(p.GetName(), "", []interface{}{
+      fmt.Sprintf("This command will generate a '%s' file in the project directory\n", fileName),
+      "that describes a deployment of a DC/OS cluster on AWS. A file with sane defaults",
+      "is created for you. You can override the values with the following flags:",
+    }, &tfc)
     return nil
   }
 
@@ -391,7 +393,7 @@ func (p *PluginDcosAwsCmdAddCluster) Handle(args []string, project *ProjectSandb
     ``,
     `  tags = {`,
     fmt.Sprintf(`    "expiration" = "%s"`, *fExpire),
-    fmt.Sprintf(`    "owner"      = "%s"`, *fOwner),
+    fmt.Sprintf(`    "owner"      = %s`, FormatJSON(*fOwner)),
     `  }`,
     `}`,
     ``,

@@ -3,7 +3,6 @@ package plugins
 import (
   "flag"
   "fmt"
-  "os"
   "strings"
 
   . "github.com/logrusorgru/aurora"
@@ -67,13 +66,10 @@ func (p *PluginAddServiceCmdAddService) Handle(args []string, project *ProjectSa
   }
 
   if *help {
-    fmt.Printf("Usage: %s %s [-help] [options]\n", os.Args[0], Bold(p.GetName()))
-    fmt.Println("")
-    fmt.Println("This command will generate a service-xxx.tf file in the project directory")
-    fmt.Println("that describes a deployment of a universe service on DC/OS.")
-    fmt.Println("")
-    fmt.Println("Options:")
-    fSet.PrintDefaults()
+    PrintHelp(p.GetName(), "", []interface{}{
+      "This command will generate a service-xxx.tf file in the project directory",
+      "that describes a deployment of a universe service on DC/OS.",
+    }, fSet)
     return nil
   }
 

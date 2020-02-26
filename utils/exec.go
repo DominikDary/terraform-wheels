@@ -53,10 +53,10 @@ func ExecuteAndPassthrough(env []string, binary string, args ...string) (int, er
 
   // Async readers of the Stdout/Err
   go func() {
-    _, _ = io.Copy(os.Stdout, stdout)
+    _, _ = io.Copy(colorableStdout, stdout)
   }()
   go func() {
-    _, _ = io.Copy(os.Stderr, stderr)
+    _, _ = io.Copy(colorableStderr, stderr)
   }()
 
   // Forward interrupt signals to the launched process
@@ -113,10 +113,10 @@ func ExecuteInFolderAndPassthrough(workDir string, binary string, args ...string
 
   // Async readers of the Stdout/Err
   go func() {
-    _, _ = io.Copy(os.Stdout, stdout)
+    _, _ = io.Copy(colorableStdout, stdout)
   }()
   go func() {
-    _, _ = io.Copy(os.Stderr, stderr)
+    _, _ = io.Copy(colorableStderr, stderr)
   }()
 
   if err := cmd.Wait(); err != nil {
@@ -200,10 +200,10 @@ func ShellExecuteInFolderAndPassthrough(workDir string, cmdline string) (int, er
 
   // Async readers of the Stdout/Err
   go func() {
-    _, _ = io.Copy(os.Stdout, stdout)
+    _, _ = io.Copy(colorableStdout, stdout)
   }()
   go func() {
-    _, _ = io.Copy(os.Stderr, stderr)
+    _, _ = io.Copy(colorableStderr, stderr)
   }()
 
   if err := cmd.Wait(); err != nil {

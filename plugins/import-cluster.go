@@ -514,17 +514,13 @@ func (p *PluginImportClusterCmdImport) importOnpremAws(inputConfig *DcosLaunchIn
   return cfgLines, nil
 }
 
-func (p *PluginImportClusterCmdImport) PrintHelp() {
-  fmt.Printf("Usage: %s %s [-help] [options] filename.yaml\n", os.Args[0], Bold(p.GetName()))
-  fmt.Println("")
-  fmt.Println("This command will convert the given dcos-lauch YAML configuration file into")
-  fmt.Println("a terraform deployment module.")
-  fmt.Println("")
-  fmt.Println("Options:")
-}
-
 func (p *PluginImportClusterCmdImport) Handle(args []string, project *ProjectSandbox, tf *TerraformWrapper) error {
   var fileName string = "cluster-imported.tf"
+  var helpCmdline = "filename.yaml"
+  var helpMessage = []interface{}{
+    "This command will convert the given dcos-lauch YAML configuration file into",
+    "a terraform deployment module.",
+  }
 
   fSet := flag.NewFlagSet(p.GetName(), flag.ContinueOnError)
 
@@ -536,14 +532,12 @@ func (p *PluginImportClusterCmdImport) Handle(args []string, project *ProjectSan
   }
 
   if *help {
-    p.PrintHelp()
-    fSet.PrintDefaults()
+    PrintHelp(p.GetName(), helpCmdline, helpMessage, fSet)
     return nil
   }
 
   if len(fSet.Args()) < 1 {
-    p.PrintHelp()
-    fSet.PrintDefaults()
+    PrintHelp(p.GetName(), helpCmdline, helpMessage, fSet)
     return fmt.Errorf("Please specify the path to the configuration YAML to load")
   }
 

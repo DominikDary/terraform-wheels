@@ -9,6 +9,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0
 	github.com/imdario/mergo v0.3.8
 	github.com/logrusorgru/aurora v0.0.0-20200102142835-e9ef32dff381
+	github.com/mattn/go-colorable v0.1.4
 	github.com/mattn/go-runewidth v0.0.8 // indirect
 	github.com/spf13/cobra v0.0.6 // indirect
 	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2

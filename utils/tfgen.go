@@ -4,9 +4,9 @@ import (
   "encoding/json"
   "flag"
   "fmt"
+  "io"
+  "os"
   "strings"
-
-  "github.com/hashicorp/hcl/hcl/printer"
 )
 
 type TerraformFileConfig struct {
@@ -20,6 +20,8 @@ type TerraformFileConfig struct {
   PostLines []string
 
   BodyPrefix string
+
+  printOutput io.Writer
 }
 
 func wrapLongLines(text string, lineWidth int) []string {
@@ -46,27 +48,34 @@ func wrapLongLines(text string, lineWidth int) []string {
   return ret
 }
 
-func printFlag(f *flag.Flag) {
+func ComposeTerraformFile(cfg *TerraformFileConfig) ([]byte, error) {
+  return nil, nil
+}
+
+func (c *TerraformFileConfig) printFlag(f *flag.Flag) {
+  var retLines []string = nil
   lines := wrapLongLines(f.Usage, 60)
   fname := fmt.Sprintf("-%s=", f.Name)
 
-  fmt.Println("")
+  retLines = append(retLines, "")
   for i, line := range lines {
     if i == 0 {
       if len(fname) > 20 {
-        fmt.Printf("  %s\n", fname)
-        fmt.Printf("  %-20s %s\n", "", line)
+        retLines = append(retLines, fmt.Sprintf("  %s", fname))
+        retLines = append(retLines, fmt.Sprintf("  %-20s %s", "", line))
       } else {
-        fmt.Printf("  %-20s %s\n", fname, line)
+        retLines = append(retLines, fmt.Sprintf("  %-20s %s", fname, line))
       }
     } else {
-      fmt.Printf("  %-20s %s\n", "", line)
+      retLines = append(retLines, fmt.Sprintf("  %-20s %s", "", line))
     }
   }
-}
+  retLines = append(retLines, "")
 
-func ComposeTerraformFile(cfg *TerraformFileConfig) ([]byte, error) {
-  return nil, nil
+  if c.printOutput == nil {
+    c.printOutput = os.Stdout
+  }
+  c.printOutput.Write([]byte(strings.Join(retLines, "\n")))
 }
 
 func (c *TerraformFileConfig) IsList(name string) bool {
@@ -96,8 +105,12 @@ func (c *TerraformFileConfig) IsIgnored(name string) bool {
   return false
 }
 
-func (c *TerraformFileConfig) PrintOptionHelp() {
-  c.Flags.VisitAll(printFlag)
+func (c *TerraformFileConfig) PrintDefaults() {
+  c.Flags.VisitAll(c.printFlag)
+}
+
+func (c *TerraformFileConfig) SetOutput(output io.Writer) {
+  c.printOutput = output
 }
 
 func (c *TerraformFileConfig) Generate() ([]byte, error) {
@@ -183,11 +196,5 @@ func (c *TerraformFileConfig) Generate() ([]byte, error) {
   allLines = append(allLines, c.PostLines...)
 
   content := []byte(strings.Join(allLines, "\n"))
-
-  content, err := printer.Format(content)
-  if err != nil {
-    return nil, fmt.Errorf("Could not format output: %s", err.Error())
-  }
-
   return content, nil
 }

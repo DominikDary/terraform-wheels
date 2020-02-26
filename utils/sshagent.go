@@ -17,12 +17,12 @@ type SSHAgentWrapper struct {
 }
 
 func CreateSSHAgentWrapper() (*SSHAgentWrapper, error) {
-  pathAgent, err := exec.LookPath("ssh-agent")
+  pathAgent, err := exec.LookPath(ExecutableName("ssh-agent"))
   if err != nil {
     return nil, fmt.Errorf("Could not find ssh-agent in your system")
   }
 
-  pathAdd, err := exec.LookPath("ssh-add")
+  pathAdd, err := exec.LookPath(ExecutableName("ssh-add"))
   if err != nil {
     return nil, fmt.Errorf("Could not find ssh-add in your system")
   }

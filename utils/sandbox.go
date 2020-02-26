@@ -152,7 +152,7 @@ func (s *ProjectSandbox) HasTerraformFiles() (bool, error) {
 func (s *ProjectSandbox) HasTerraform() bool {
   terraformDir := filepath.Join(s.baseDir, ".terraform")
 
-  path, err := exec.LookPath("terraform")
+  path, err := exec.LookPath(ExecutableName("terraform"))
   if err == nil {
     w := CreateTeraformWrapper(path)
     if ver, err := w.GetVersion(); err == nil {
@@ -163,7 +163,7 @@ func (s *ProjectSandbox) HasTerraform() bool {
   }
 
   fBinPath := filepath.Join(terraformDir, "bin")
-  fPath := filepath.Join(fBinPath, "terraform")
+  fPath := filepath.Join(fBinPath, ExecutableName("terraform"))
   _, err = os.Stat(fPath)
   return err == nil
 }
@@ -176,7 +176,7 @@ func (s *ProjectSandbox) GetTerraform() (*TerraformWrapper, error) {
   terraformDir := filepath.Join(s.baseDir, ".terraform")
 
   // First lookup terraform in the environment
-  path, err := exec.LookPath("terraform")
+  path, err := exec.LookPath(ExecutableName("terraform"))
   if err == nil {
     w := CreateTeraformWrapper(path)
     if ver, err := w.GetVersion(); err == nil {
@@ -188,7 +188,7 @@ func (s *ProjectSandbox) GetTerraform() (*TerraformWrapper, error) {
   }
 
   fBinPath := filepath.Join(terraformDir, "bin")
-  fPath := filepath.Join(fBinPath, "terraform")
+  fPath := filepath.Join(fBinPath, ExecutableName("terraform"))
   if err = os.MkdirAll(fBinPath, os.ModePerm); err != nil {
     return nil, fmt.Errorf("Unable to create terraform directory")
   }
