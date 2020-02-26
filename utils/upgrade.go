@@ -5,6 +5,8 @@ import (
   "fmt"
   "os"
   "os/exec"
+  "path/filepath"
+  "runtime"
   "strings"
   "time"
 
@@ -54,7 +56,7 @@ func GetLatestVersion() (LatestVersion, error) {
       return res, fmt.Errorf("invalid version info: invalid field `assets`")
     }
     if url, ok := mapInst["browser_download_url"].(string); ok {
-      if strings.Contains(url, "darwin") {
+      if strings.Contains(url, runtime.GOOS) {
         downloadUrl = url
         break
       }
@@ -94,10 +96,21 @@ func PerformUpgrade(newVersion LatestVersion) error {
   }
 
   // Download the new version
-  err = Download(newVersion.URL, WithDefaults).
-    AndShowProgress("").
-    AndDecompressIfCompressed().
-    EventuallyWriteTo(replaceTarget)
+  stream := Download(newVersion.URL, WithDefaults).AndShowProgress("")
+  if runtime.GOOS == "windows" {
+    err = stream.
+      EventuallyUnzipOnlyTo(
+        filepath.Dir(replaceTarget)+"/",
+        []string{filepath.Base(replaceTarget)},
+        0)
+  } else {
+    err = stream.
+      AndDecompressIfCompressed().
+      EventuallyUntarOnlyTo(
+        filepath.Dir(replaceTarget)+"/",
+        []string{filepath.Base(replaceTarget)},
+        0)
+  }
   if err != nil {
     os.Remove(replaceTarget)
     os.Rename(bakTarget, replaceTarget)

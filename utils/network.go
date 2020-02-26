@@ -375,7 +375,82 @@ func (stream NetworkStreamChain) EventuallyUnzipTo(prefix string, stripComponent
 /**
  * De-compress the stream on the given directory
  */
-func (stream NetworkStreamChain) EventuallyUntarTo(prefix string, stripComponents int) error {
+func (stream NetworkStreamChain) EventuallyUntarTo(prefix string, stripComponents int) ([]string, error) {
+  var files []string = nil
+  if stream.Err != nil {
+    return files, stream.Err
+  }
+
+  // Removes `stripComponents` parts from the path given
+  applyStrip := func(src string) string {
+    parts := strings.Split(src, string(os.PathSeparator))
+    if stripComponents >= len(parts) {
+      return ""
+    }
+    return filepath.Join(parts[stripComponents:]...)
+  }
+
+  // Open the tar stream
+  tarReader := tar.NewReader(stream.Reader)
+  for true {
+    header, err := tarReader.Next()
+    if err == io.EOF {
+      break
+    }
+
+    if err != nil {
+      stream.Close()
+      return files, fmt.Errorf("untar failed: cannot get next entry: %s", err.Error())
+    }
+
+    switch header.Typeflag {
+
+    // Directory
+    case tar.TypeDir:
+      fName := applyStrip(header.Name)
+      if fName != "" {
+        if err := os.Mkdir(prefix+fName, 0755); err != nil {
+          stream.Close()
+          return files, fmt.Errorf("untar failed: cannot create directory: %s", err.Error())
+        }
+      }
+
+    // File
+    case tar.TypeReg:
+      fName := applyStrip(header.Name)
+      if fName != "" {
+        outFile, err := os.Create(prefix + fName)
+        if err != nil {
+          stream.Close()
+          return files, fmt.Errorf("untar failed: cannot create file: %s", err.Error())
+        }
+        defer outFile.Close()
+        if _, err := io.Copy(outFile, tarReader); err != nil {
+          stream.Close()
+          return files, fmt.Errorf("untar failed: cannot copy file contents: %s", err.Error())
+        }
+
+        files = append(files, fName)
+      }
+
+    // Other/Unknown
+    default:
+      // return files, errors.New(
+      //   fmt.Sprintf("ExtractTarGz: uknown type: %s in %s",
+      //     header.Typeflag,
+      //     header.Name))
+    }
+  }
+
+  // Close the stream and return any final errors that might have occurred
+  return files, stream.Close()
+}
+
+/**
+ * De-compress the stream on the given directory
+ */
+func (stream NetworkStreamChain) EventuallyUntarOnlyTo(prefix string, filenames []string, stripComponents int) error {
+  var extractedFiles int = 0
   if stream.Err != nil {
     return stream.Err
   }
@@ -404,21 +479,27 @@ func (stream NetworkStreamChain) EventuallyUntarTo(prefix string, stripComponent
 
     switch header.Typeflag {
 
-    // Directory
-    case tar.TypeDir:
-      fName := applyStrip(header.Name)
-      if fName != "" {
-        if err := os.Mkdir(prefix+fName, 0755); err != nil {
-          stream.Close()
-          return fmt.Errorf("untar failed: cannot create directory: %s", err.Error())
-        }
-      }
-
     // File
     case tar.TypeReg:
       fName := applyStrip(header.Name)
-      if fName != "" {
-        outFile, err := os.Create(prefix + fName)
+
+      // Check if that file should be created
+      found := false
+      for _, rqName := range filenames {
+        if rqName == fName {
+          found = true
+          break
+        }
+      }
+
+      if found {
+        fDstName := prefix + fName
+
+        if err = os.MkdirAll(filepath.Dir(fDstName), os.ModePerm); err != nil {
+          return fmt.Errorf("untar failed: cannot create directory %s: %s", filepath.Dir(fDstName), err.Error())
+        }
+
+        outFile, err := os.Create(fDstName)
         if err != nil {
           stream.Close()
           return fmt.Errorf("untar failed: cannot create file: %s", err.Error())
@@ -428,6 +509,8 @@ func (stream NetworkStreamChain) EventuallyUntarTo(prefix string, stripComponent
           stream.Close()
           return fmt.Errorf("untar failed: cannot copy file contents: %s", err.Error())
         }
+
+        extractedFiles += 1
       }
 
     // Other/Unknown
@@ -437,6 +520,107 @@ func (stream NetworkStreamChain) EventuallyUntarTo(prefix string, stripComponent
       //     header.Typeflag,
       //     header.Name))
     }
+  }
+
+  if extractedFiles == 0 {
+    return fmt.Errorf("Did not find any matching file in the archive")
+  }
+
+  // Close the stream and return any final errors that might have occurred
+  return stream.Close()
+}
+
+/**
+ * De-compress the stream on the given directory
+ */
+func (stream NetworkStreamChain) EventuallyUnzipOnlyTo(prefix string, filenames []string, stripComponents int) error {
+  var extractedFiles int = 0
+  if stream.Err != nil {
+    return stream.Err
+  }
+
+  // Removes `stripComponents` parts from the path given
+  applyStrip := func(src string) string {
+    parts := strings.Split(src, string(os.PathSeparator))
+    if stripComponents >= len(parts) {
+      return ""
+    }
+    return filepath.Join(parts[stripComponents:]...)
+  }
+
+  // Read the whole archive in memory (not a good idea for very big files)
+  buff := bytes.NewBuffer([]byte{})
+  size, err := io.Copy(buff, stream.Reader)
+  if err != nil {
+    return fmt.Errorf("unzip failed: could not buffer file in memory: %s", err.Error())
+  }
+
+  // Oopen the zip stream
+  zipReader, err := zip.NewReader(bytes.NewReader(buff.Bytes()), size)
+  if err != nil {
+    return fmt.Errorf("unzip failed: %s", err.Error())
+  }
+
+  // Iterate over the file records
+  for _, file := range zipReader.File {
+    fName := applyStrip(file.Name)
+
+    // Check if that file should be created
+    found := false
+    for _, rqName := range filenames {
+      if rqName == fName {
+        found = true
+        break
+      }
+    }
+
+    if !found {
+      continue
+    }
+
+    // Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
+    fDstPath := filepath.Join(prefix, fName)
+    if !strings.HasPrefix(fDstPath, filepath.Clean(prefix)+string(os.PathSeparator)) {
+      return fmt.Errorf("unzip failed: illegal path: %s", fDstPath)
+    }
+
+    if file.FileInfo().IsDir() {
+      if err := os.Mkdir(fDstPath, os.ModePerm); err != nil {
+        stream.Close()
+        return fmt.Errorf("unzip failed: cannot create directory %s: %s", fDstPath, err.Error())
+      }
+      continue
+    }
+
+    // Make File
+    if err = os.MkdirAll(filepath.Dir(fDstPath), os.ModePerm); err != nil {
+      return fmt.Errorf("unzip failed: cannot create directory %s: %s", filepath.Dir(fDstPath), err.Error())
+    }
+
+    outFile, err := os.OpenFile(fDstPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+    if err != nil {
+      return fmt.Errorf("unzip failed: cannot open %s for writing: %s", fDstPath, err.Error())
+    }
+
+    rc, err := file.Open()
+    if err != nil {
+      return fmt.Errorf("unzip failed: cannot open %s for reading: %s", err.Error())
+    }
+
+    _, err = io.Copy(outFile, rc)
+
+    // Close the file without defer to close before next iteration of loop
+    outFile.Close()
+    rc.Close()
+
+    if err != nil {
+      return fmt.Errorf("unzip failed: cannot write %s: %s", fDstPath, err.Error())
+    }
+    extractedFiles += 1
+  }
+
+  if extractedFiles == 0 {
+    return fmt.Errorf("Did not find any matching file in the archive")
   }
 
   // Close the stream and return any final errors that might have occurred

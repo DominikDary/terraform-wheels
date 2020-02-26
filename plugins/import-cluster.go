@@ -611,6 +611,8 @@ func (p *PluginImportClusterCmdImport) Handle(args []string, project *ProjectSan
   bodyLines := []string{
     `  admin_ips                  = ["${data.http.whatismyip.body}/32"]`,
   }
+
+  // The output variables must match the JSON file returned by dcos-launch
   postLines := []string{
     `}`,
     ``,
