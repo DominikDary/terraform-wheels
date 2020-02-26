@@ -23,7 +23,8 @@ It only provides the following _additional_ functionality:
 You can download the pre-compiled binary from the [releases page](https://github.com/mesosphere-incubator/terraform-wheels/releases) using:
 
 ```
-curl -L https://github.com/mesosphere-incubator/terraform-wheels/releases/download/v0.0.2/terraform-wheels-darwin-amd64.tar.gz | tar -zx -C /usr/local/bin
+curl -L https://github.com/mesosphere-incubator/terraform-wheels/releases/download/v0.0.3/terraform-wheels-darwin-amd64.tar.gz \
+    | tar -zx -C /usr/local/bin
 ```
 
 ### Compiling from source
@@ -39,7 +40,7 @@ go get -u github.com/mesosphere-incubator/terraform-wheels
 The tool supports self-upgrade, so if you want to get the latest released version, just do:
 
 ```sh
-terraform-wheels launch-upgrade
+terraform-wheels wheels-upgrade
 ```
 
 ## Usage
